@@ -1,0 +1,12 @@
+* Flexible Topology
+The goal of this project is to develop a tool to dynamically design
+potential drug molecules. This tool incorporates external forces from
+a trained neural network (NN) on a set of “ghost” particles.
+
+
+* Usage
+
+
+* Installation
+
+**
