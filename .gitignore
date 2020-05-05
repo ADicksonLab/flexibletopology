@@ -6,7 +6,7 @@
 *.pkl
 *.h5
 *.log
-wepy.egg-info
+flexibletopology.egg-info
 *.dcd
 *#*#
 *.orch

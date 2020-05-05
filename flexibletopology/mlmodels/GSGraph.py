@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 
-from pharmostat.layers.utils import adjacency_matrix, skew, kurtosis
+from flexibletopology.utils.utils import adjacency_matrix, skew, kurtosis
 
 
 class GSGraph(nn.Module):
