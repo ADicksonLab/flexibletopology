@@ -8,7 +8,7 @@ import mdtraj as mdj
 import simtk.openmm.app as omma
 import simtk.openmm as omm
 import simtk.unit as unit
-from openmm_systems.test_systems import LennardJonesFluid
+from testsystems import LennardJonesFluid
 from sys import stdout
 import time
 import nnforce
@@ -108,6 +108,9 @@ if __name__=='__main__':
     #                                                    step=True,
     #                                                    potentialEnergy=True,
     #                                                    temperature=True))
+
+    if not osp.exists(outputs_path):
+        os.makedirs(outputs_path)
 
     simulation.reporters.append(mdj.reporters.DCDReporter(osp.join(outputs_path, SIM_TRAJ),
                                                           REPORT_STEPS))
