@@ -5,7 +5,7 @@ import torch
 from torch.autograd import Variable
 from flexibletopology.mlmodels.GSGraph import GSGraph
 
-MODEL_SVAE_PATH = 'inputs/gsg_model.pt'
+MODEL_SAVE_PATH = 'inputs/gsg_model.pt'
 
 if __name__=="__main__":
 
@@ -52,11 +52,11 @@ if __name__=="__main__":
     aa = model(coords, signals)
 
     traced_script_module = torch.jit.trace(model, (coords, signals))
-    traced_script_module.save(MODEL_SVAE_PATH)
+    traced_script_module.save(MODEL_SAVE_PATH)
 
     #saved model test with different with molecules of different
     #number of atoms
-    module = torch.jit.load(MODEL_SVAE_PATH)
+    module = torch.jit.load(MODEL_SAVE_PATH)
     coords2 = Variable(torch.rand(20, 3).double())
     coords2.requires_grad = True
     signals2 = Variable(torch.rand(20, 6).double())

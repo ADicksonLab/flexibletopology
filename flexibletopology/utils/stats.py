@@ -13,6 +13,7 @@ def adjacency_matrix(positions, radial_cutoff):
     dist = distance_matrix(positions)
     dist = torch.where(dist>radial_cutoff, torch.tensor(0.0, dtype=dist.dtype),
                         0.5 * torch.cos(np.pi * dist/radial_cutoff) + 0.5)
+    dist.fill_diagonal_(0.0)
     return dist
 
 
@@ -53,7 +54,6 @@ def moment(a, moment=1, axis=0):
                 s *= a_zero_mean
         return s.mean(axis)
 
-
 def skew(a, axis=0, bias=True):
     n = a.shape[axis]
     m2 = moment(a, 2, axis)
@@ -63,7 +63,7 @@ def skew(a, axis=0, bias=True):
     if not bias and size_helper(a, torch.tensor(axis)) > 2:
         n =  size_helper(a, torch.tensor(axis))
         vals = torch.where(m2 > 0,
-                           torch.sqrt(torch.as_tensor((n-1.0)*n, dtype=m2.dtype))/(n-2.0)*m3/m2**1.5, vals)
+                           torch.sqrt(torch.as_tensor((n-torch.tensor(1))*n, dtype=m2.dtype))/(n-torch.tensor(2))*m3/m2**1.5, vals)
 
     if vals.ndim == 0:
         return vals.item()
@@ -79,11 +79,10 @@ def kurtosis(a, axis=0, fisher=True, bias=True):
 
     vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m4 / m2**2.0)
 
-
     if not bias and size_helper(a, torch.tensor(axis))> 3:
         n =  size_helper(a, torch.tensor(axis))
         vals = torch.where(m2 > 0,
-                        1.0/(n-2)/(n-3)*((n*n-1.0)*m4/m2**2.0-3*(n-1)**2.0)+3.0,
+                           torch.tensor(1.0)/(n-2)/(n-3)*((n*n-1.0)*m4/m2**2.0-3*(n-1)**2.0)+torch.tensor(3.0),
                         vals)
     if vals.ndim == 0:
         return vals.item()

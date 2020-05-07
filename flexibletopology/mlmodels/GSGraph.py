@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 
-from flexibletopology.utils.utils import adjacency_matrix, skew, kurtosis
+from flexibletopology.utils.stats import adjacency_matrix, skew, kurtosis
 
 
 class GSGraph(nn.Module):
@@ -10,7 +10,7 @@ class GSGraph(nn.Module):
     def __init__(self, wavelet_num_steps=4, radial_cutoff=7.5,
                  features=(True, True, True)):
         super(GSGraph, self).__init__()
-        #self.is_trainable = False
+        self.is_trainable = False
         self.wavelet_num_steps = wavelet_num_steps
         self.radial_cutoff = radial_cutoff
         self.features = features
