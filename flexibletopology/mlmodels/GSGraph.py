@@ -8,12 +8,12 @@ from flexibletopology.utils.stats import adjacency_matrix, skew, kurtosis
 class GSGraph(nn.Module):
 
     def __init__(self, wavelet_num_steps=4, radial_cutoff=7.5,
-                 features=(True, True, True)):
+                 scf_flags=(True, True, True)):
         super(GSGraph, self).__init__()
         self.is_trainable = False
         self.wavelet_num_steps = wavelet_num_steps
         self.radial_cutoff = radial_cutoff
-        self.features = features
+        self.scf_flags = scf_flags
 
     def lazy_random_walk(self, adj_mat):
 
@@ -107,13 +107,13 @@ class GSGraph(nn.Module):
 
         gsg_features = []
 
-        if self.features[0]:
+        if self.scf_flags[0]:
             gsg_features.append(self.zero_order_feature(signals))
 
-        if self.features[1]:
+        if self.scf_flags[1]:
             gsg_features.append(self.first_order_feature(wavelets, signals))
 
-        if self.features[2]:
+        if self.scf_flags[2]:
             gsg_features.append(self.second_order_feature(wavelets, signals))
 
 

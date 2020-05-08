@@ -57,7 +57,7 @@ from simtk import openmm
 from simtk import unit
 from simtk.openmm import app
 
-from constants import kB
+from openmm_testsystems.constants import kB
 
 pi = np.pi
 
@@ -266,7 +266,7 @@ def subrandom_particle_positions(nparticles, box_vectors, method='sobol'):
 
     elif method == 'sobol':
         # Generate Sobol' sequence.
-        import sobol
+        from openmm_testsystems import sobol
         ivec = sobol.i4_sobol_generate(3, nparticles, 1)
         x = np.array(ivec, np.float32)
         for dim in range(3):

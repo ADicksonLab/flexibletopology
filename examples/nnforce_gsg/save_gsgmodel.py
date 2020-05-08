@@ -4,64 +4,58 @@ import pickle as pkl
 import torch
 from torch.autograd import Variable
 from flexibletopology.mlmodels.GSGraph import GSGraph
+import warnings
+
+warnings.filterwarnings("ignore")
 
 MODEL_SAVE_PATH = 'inputs/gsg_model.pt'
+DATASET = 'openchem_3D_8_110.pkl'
+
 
 if __name__=="__main__":
 
-    FEATURES_FLAG = (True, True, True)
-
-
-    with open('inputs/openchem_3D4_110.pkl', 'rb') as pklf:
+    #load the data
+    with open(f'inputs/{DATASET}', 'rb') as pklf:
         data = pkl.load(pklf)
 
     #number of atoms 27
-    idx_start = 26
-    idx_end = 28
-
-
+    mol_idx = 26
     #get the coordinates
-    coords = np.copy(data['coords'][idx_start])/10
-
-    #Define an array of signals, shape: (num_atoms, 3)[cahrge, radius,
-    #epsilon]
-
-    target_features = np.copy(data['gaff_features_notype'][idx_end])
-    signals = np.copy(data['gaff_signals_notype'][idx_end])
-    tmp = signals[2]
-    signals[2] = signals[6]
-    signals[6] = tmp
-
+    coords = np.copy(data['coords'][mol_idx])
+    signals = np.copy(data['gaff_signals_notype'][mol_idx])
+    features = np.copy(data['gaff_features_notype'][mol_idx])
 
     #set the GSG parameters
-    wavelet_num_steps = 4
+    wavelet_num_steps = 8
     radial_cutoff = 7.5
-
+    scf_flags= (True, True, False)
 
     coords = torch.from_numpy(coords)
     coords.requires_grad = True
     signals = torch.from_numpy(signals)
+    signals.requires_grad = True
 
-    model = GSGraph(features=(True, True, False))
+    #construct the Torch GSG model
+    model = GSGraph(wavelet_num_steps=wavelet_num_steps,
+                    radial_cutoff=radial_cutoff,
+                    scf_flags=scf_flags)
     device = torch.device('cpu')
     model.to(device)
     model.double()
 
-    loss_fn = torch.nn.MSELoss()
 
-    aa = model(coords, signals)
+
 
     traced_script_module = torch.jit.trace(model, (coords, signals))
     traced_script_module.save(MODEL_SAVE_PATH)
 
-    #saved model test with different with molecules of different
-    #number of atoms
-    module = torch.jit.load(MODEL_SAVE_PATH)
-    coords2 = Variable(torch.rand(20, 3).double())
-    coords2.requires_grad = True
-    signals2 = Variable(torch.rand(20, 6).double())
-    out = module(coords2, signals2)
-    loss = loss_fn(out, torch.rand(120, 1).double())
+    #test the save model
+    loaded_model = torch.jit.load(MODEL_SAVE_PATH)
+    predicted_features = loaded_model(coords, signals)
+    loss_fn = torch.nn.MSELoss()
+    loss = loss_fn(torch.tensor(features), predicted_features)
     loss.backward()
-    print(coords2.grad)
-    print(out.shape)
+    if loss.item()==0.0:
+        print("The model saved successfuly and calculates features correctly")
+    else:
+        print("The model saved successfuly but calculated features are not correct")

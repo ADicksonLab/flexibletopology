@@ -8,7 +8,7 @@ import mdtraj as mdj
 import simtk.openmm.app as omma
 import simtk.openmm as omm
 import simtk.unit as unit
-from testsystems import LennardJonesFluid
+from openmm_testsystems.testsystems import LennardJonesFluid
 from sys import stdout
 import time
 import nnforce
@@ -21,7 +21,7 @@ omm.Platform.loadPluginsFromDirectory('/usr/local/openmm/lib/plugins/')
 inputs_path = 'inputs'
 outputs_path ='outputs'
 NNMODEL_NAME = 'gsg_model.pt'
-DATASET_NAME = 'openchem_3D4_110.pkl'
+DATASET_NAME = 'openchem_3D_8_110.pkl'
 IDX_START = 117
 IDX_END = 177
 NNFORCESCALE = 1000.0
@@ -37,8 +37,8 @@ REPORT_STEPS = 10
 
 #Set input and output files name
 PDB = 'traj8.pdb'
-SIM_TRAJ = 'gsgforces_ljfluid.dcd'
-EXNNFORCE_REPORTER = 'gsgforces_ljfluid.h5'
+SIM_TRAJ = 'ljfluid_traj.dcd'
+EXNNFORCE_REPORTER = 'gsgforces_traj.h5'
 
 
 
