@@ -27,7 +27,7 @@ if __name__=="__main__":
 
     #set the GSG parameters
     wavelet_num_steps = 8
-    radial_cutoff = 7.5
+    radial_cutoff = 0.75
     scf_flags= (True, True, False)
 
     coords = torch.from_numpy(coords)
@@ -45,17 +45,10 @@ if __name__=="__main__":
 
 
 
+    try:
+        traced_script_module = torch.jit.trace(model, (coords, signals))
+        traced_script_module.save(MODEL_SAVE_PATH)
+        print("The model saved successfuly")
+    except:
 
-    traced_script_module = torch.jit.trace(model, (coords, signals))
-    traced_script_module.save(MODEL_SAVE_PATH)
-
-    #test the save model
-    loaded_model = torch.jit.load(MODEL_SAVE_PATH)
-    predicted_features = loaded_model(coords, signals)
-    loss_fn = torch.nn.MSELoss()
-    loss = loss_fn(torch.tensor(features), predicted_features)
-    loss.backward()
-    if loss.item()==0.0:
-        print("The model saved successfuly and calculates features correctly")
-    else:
-        print("The model saved successfuly but calculated features are not correct")
+       print("Can not save the model")
