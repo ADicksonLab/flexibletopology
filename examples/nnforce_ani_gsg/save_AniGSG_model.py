@@ -52,7 +52,7 @@ if __name__=="__main__":
     #set the GSG parameters
     wavelet_num_steps = 8
     radial_cutoff = 7.5
-    scf_flags= (True, True, False)
+    scf_flags = (True, True, False)
 
     #construct the Torch GSG model
     model = GSGraph(wavelet_num_steps=wavelet_num_steps,
