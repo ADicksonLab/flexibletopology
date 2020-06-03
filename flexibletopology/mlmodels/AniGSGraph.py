@@ -6,12 +6,12 @@ import numpy as np
 from flexibletopology.mlmodels.GSGraph import GSGraph
 from torch.jit import Final
 import torchani
-from .aev import AEVComputer
-
+#from .aev import AEVComputer
+from torchani import AEVComputer
 class AniGSGraph(nn.Module):
 
-    TORCHANI_PATH: Final[str]
-    TORCHANI_PARAMS_FILE: Final[str]
+    BASE_DIR: Final[str]
+    ANI_PARAMS_FILE: Final[str]
     CONST_FILE: Final[str]
 
     def __init__(self, wavelet_num_steps=4, radial_cutoff=7.5,
@@ -27,8 +27,8 @@ class AniGSGraph(nn.Module):
                             radial_cutoff=self.radial_cutoff,
                             scf_flags=self.scf_flags)
 
-        self.TORCHANI_PATH = os.path.dirname(os.path.realpath(torchani.__file__))
-        self.TORCHANI_PARAMS_FILE = '../torchani/resources/ani-1x_8x/rHCNO-5.2R_16-3.5A_a4-8.params'
+        self.BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+        self.ANI_PARAMS_FILE = '../resources/ani_params/ani-1ccx_8x.params'
 
     def ani_aev(self, coordinates):
 
@@ -37,8 +37,8 @@ class AniGSGraph(nn.Module):
         for i in range(num_atoms):
             atom_types += 'C'
 
-        const_file = os.path.join(self.TORCHANI_PATH,
-                                  self.TORCHANI_PARAMS_FILE)
+        const_file = os.path.join(self.BASE_DIR,
+                                  self.ANI_PARAMS_FILE)
 
         consts = torchani.neurochem.Constants(const_file)
         aev_computer = AEVComputer(**consts)

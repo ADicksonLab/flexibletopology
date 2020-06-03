@@ -54,6 +54,7 @@ def test_features(wavelet_num_steps, scf_flags):
 
         nans = torch.where(torch.isnan(ani_gsg_features.squeeze(1))==True)[0]
 
+        import ipdb; ipdb.set_trace()
         if nans.shape[0] > 0 :
             nans_count += 1
 
@@ -101,12 +102,13 @@ def test_gradients(wavelet_num_steps, scf_flags):
 
 if __name__=="__main__":
 
-    # print("The total number of molecules is 250")
+    print("The total number of molecules is 250")
     # gsg_params = product(PARAMS['wavelet_steps'], PARAMS['scf_flags'])
     # for wavelet_steps, scf_flags in gsg_params:
 
     #     nans_count = test_features(wavelet_steps, scf_flags)
     #     print(f'Model with wavelet_steps {wavelet_steps} and scf flags of {scf_flags} has {nans_count} molecules with nan fetures')
 
-    nans_count = test_gradients(8, (True, True, False))
+    # #nans_count = test_gradients(8, (True, True, False))
+    nans_count = test_features(8, (True, True, False))
     print(f'Model with wavelet_steps 8 and scf flags of (True, True, False) has {nans_count} molecules with nan coord_grad')

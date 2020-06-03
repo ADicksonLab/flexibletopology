@@ -484,12 +484,14 @@ class AEVComputer(torch.nn.Module):
         species, coordinates = input_
 
         if cell is None and pbc is None:
-            aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
+            #aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
+            aev = compute_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
         else:
             assert (cell is not None and pbc is not None)
             cutoff = max(self.Rcr, self.Rca)
             shifts = compute_shifts(cell, pbc, cutoff)
-            aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, (cell, shifts))
+            #aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, (cell, shifts))
+            aev = compute_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, (cell, shifts))
 
 
         return SpeciesAEV(species, aev)
