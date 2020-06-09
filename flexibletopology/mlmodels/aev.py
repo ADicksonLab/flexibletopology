@@ -313,6 +313,45 @@ def compute_aev(species: Tensor, coordinates: Tensor, triu_index: Tensor,
     return torch.cat([radial_aev, angular_aev], dim=-1)
 
 
+def compute_radial_aev(species: Tensor, coordinates: Tensor, triu_index: Tensor,
+                constants: Tuple[float, Tensor, Tensor, float, Tensor, Tensor, Tensor, Tensor],
+                sizes: Tuple[int, int, int, int, int], cell_shifts: Optional[Tuple[Tensor, Tensor]]) -> Tensor:
+    Rcr, EtaR, ShfR, Rca, ShfZ, EtaA, Zeta, ShfA = constants
+    num_species, radial_sublength, radial_length, angular_sublength, angular_length = sizes
+    num_molecules = species.shape[0]
+    num_atoms = species.shape[1]
+    num_species_pairs = angular_length // angular_sublength
+    coordinates_ = coordinates
+    coordinates = coordinates_.flatten(0, 1)
+
+    # PBC calculation is bypassed if there are no shifts
+    if cell_shifts is None:
+        atom_index12 = neighbor_pairs_nopbc(species == -1, coordinates_, Rcr)
+        selected_coordinates = coordinates.index_select(0, atom_index12.view(-1)).view(2, -1, 3)
+        vec = selected_coordinates[0] - selected_coordinates[1]
+    else:
+        cell, shifts = cell_shifts
+        atom_index12, shifts = neighbor_pairs(species == -1, coordinates_, cell, shifts, Rcr)
+        shift_values = shifts.to(cell.dtype) @ cell
+        selected_coordinates = coordinates.index_select(0, atom_index12.view(-1)).view(2, -1, 3)
+        vec = selected_coordinates[0] - selected_coordinates[1] + shift_values
+
+    species = species.flatten()
+    species12 = species[atom_index12]
+
+    distances = vec.norm(2, -1)
+
+    # compute radial aev
+    radial_terms_ = radial_terms(Rcr, EtaR, ShfR, distances)
+    radial_aev = radial_terms_.new_zeros((num_molecules * num_atoms * num_species, radial_sublength))
+    index12 = atom_index12 * num_species + species12.flip(0)
+    radial_aev.index_add_(0, index12[0], radial_terms_)
+    radial_aev.index_add_(0, index12[1], radial_terms_)
+    radial_aev = radial_aev.reshape(num_molecules, num_atoms, radial_length)
+
+    return radial_aev
+
+
 def compute_angular_aev(species: Tensor, coordinates: Tensor, triu_index: Tensor,
                 constants: Tuple[float, Tensor, Tensor, float, Tensor, Tensor, Tensor, Tensor],
                 sizes: Tuple[int, int, int, int, int], cell_shifts: Optional[Tuple[Tensor, Tensor]]) -> Tensor:
@@ -406,8 +445,8 @@ class AEVComputer(torch.nn.Module):
 
         # convert constant tensors to a ready-to-broadcast shape
         # shape convension (..., EtaR, ShfR)
-        self.register_buffer('EtaR', EtaR.view(-1, 1))
-        self.register_buffer('ShfR', ShfR.view(1, -1))
+        self.register_buffer('EtaR', EtaR.view(-1, 1)/10)
+        self.register_buffer('ShfR', ShfR.view(1, -1)/10)
         # shape convension (..., EtaA, Zeta, ShfA, ShfZ)
         self.register_buffer('EtaA', EtaA.view(-1, 1, 1, 1))
         self.register_buffer('Zeta', Zeta.view(1, -1, 1, 1))
@@ -484,13 +523,12 @@ class AEVComputer(torch.nn.Module):
         species, coordinates = input_
 
         if cell is None and pbc is None:
-            #aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
+            aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
             aev = compute_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
         else:
             assert (cell is not None and pbc is not None)
             cutoff = max(self.Rcr, self.Rca)
             shifts = compute_shifts(cell, pbc, cutoff)
-            #aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, (cell, shifts))
             aev = compute_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, (cell, shifts))
 
 

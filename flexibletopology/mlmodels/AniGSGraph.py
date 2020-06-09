@@ -6,8 +6,9 @@ import numpy as np
 from flexibletopology.mlmodels.GSGraph import GSGraph
 from torch.jit import Final
 import torchani
-#from .aev import AEVComputer
-from torchani import AEVComputer
+
+from .aev import AEVComputer
+
 class AniGSGraph(nn.Module):
 
     BASE_DIR: Final[str]
@@ -28,7 +29,7 @@ class AniGSGraph(nn.Module):
                             scf_flags=self.scf_flags)
 
         self.BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-        self.ANI_PARAMS_FILE = '../resources/ani_params/ani-1ccx_8x.params'
+        self.ANI_PARAMS_FILE = '../resources/ani_params/ani-1ccx_8x_nm.params'
 
     def ani_aev(self, coordinates):
 

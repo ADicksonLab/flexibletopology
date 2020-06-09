@@ -10,7 +10,7 @@ class GSGraph(nn.Module):
     def __init__(self, wavelet_num_steps=4, radial_cutoff=7.5,
                  scf_flags=(True, True, True)):
         super(GSGraph, self).__init__()
-        self.is_trainable = False
+        self.is_trainable = True
         self.wavelet_num_steps = wavelet_num_steps
         self.radial_cutoff = radial_cutoff
         self.scf_flags = scf_flags
@@ -106,6 +106,7 @@ class GSGraph(nn.Module):
         wavelets = self.graph_wavelet(probability_mat)
 
         gsg_features = []
+
 
         if self.scf_flags[0]:
             gsg_features.append(self.zero_order_feature(signals))
