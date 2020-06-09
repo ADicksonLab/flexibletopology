@@ -14,7 +14,7 @@ import time
 import torch
 import torchani
 
-from flexibletopology.mlmodels.GSGraph import GSGraph
+from flexibletopology.mlmodels.AniGSGraph import AniGSGraph
 import nnforce
 from nnforce_reporter import NNForceReporter
 
@@ -44,9 +44,6 @@ PDB = 'traj8.pdb'
 SIM_TRAJ = 'ljfluid_traj.dcd'
 EXNNFORCE_REPORTER = 'gsgforces_traj.h5'
 
-TORCHANI_PATH = os.path.dirname(osp.realpath(torchani.__file__))
-TORCHANI_PARAMS_FILE = '../torchani/resources/ani-1ccx_8x/rHCNO-5.2R_16-3.5A_a4-8.params'
-
 
 
 def read_data(dataset_name, idx_start, idx_end):
@@ -56,57 +53,31 @@ def read_data(dataset_name, idx_start, idx_end):
     with open(dataset_path, 'rb') as pklf:
         data = pkl.load(pklf)
 
-    target_features = np.copy(data['gaff_features_notype'][idx_end])
-    signals = np.copy(data['gaff_signals_notype'][idx_end])
-    tmp = signals[2]
-    signals[2] = signals[6]
-    signals[6] = tmp
+    initial_signals = np.copy(data['gaff_signals_notype'][idx_start])
+    initial_coords = np.copy(data['coords'][idx_start]) / 10
 
-    #convert to nm
-    positions = np.copy(data['coords'][idx_start]) / 10
+    target_signals = np.copy(data['gaff_signals_notype'][idx_end])
+    target_coords = np.copy(data['coords'][idx_end]) / 10
 
-    return positions, signals, target_features
-
-def ANI_AEV(coordinates):
-
-    coordinates = torch.from_numpy(coordinates).to(torch.float32).unsqueeze(0)
-    num_atoms = coordinates.shape[1]
-    # Consider all atoms as carbon C=6
-    atom_types = ''
-    for i in range(num_atoms):
-        atom_types+='C'
-
-    #create signals from TorchANI model
-    const_file = osp.join(TORCHANI_PATH, TORCHANI_PARAMS_FILE)
-    consts = torchani.neurochem.Constants(const_file)
-    aev_computer = torchani.AEVComputer(**consts)
-
-    species = consts.species_to_tensor(atom_types).unsqueeze(0)
-    _, aev_signals = aev_computer((species, coordinates))
-
-    return aev_signals.squeeze(0)
-
-def GSG_features(coordinates, atomistic_signals, aev_signals):
-    aev_signals = aev_signals.double()
-    atomistic_signals = torch.from_numpy(atomistic_signals)
-    coordinates = torch.from_numpy(coordinates).double()
-    #set the GSG parameters
+    #run ANIGSG to get target features
+    scf_flags = (True, True, False)
     wavelet_num_steps = 8
-    radial_cutoff = 7.5
-    scf_flags= (True, True, False)
+    radial_cutoff = 0.52
 
-    #construct the Torch GSG model
-    model = GSGraph(wavelet_num_steps=wavelet_num_steps,
-                    radial_cutoff=radial_cutoff,
-                    scf_flags=scf_flags)
-    device = torch.device('cpu')
-    model.to(device)
-    model.double()
+    AniGSG_model = AniGSGraph(wavelet_num_steps=wavelet_num_steps,
+                              radial_cutoff=radial_cutoff,
+                              scf_flags=scf_flags)
 
-    signals = torch.cat((aev_signals.squeeze(0), atomistic_signals), 1)
-    target_features = model(coordinates, signals)
 
-    return signals.numpy(), target_features.numpy()
+    target_coords = torch.from_numpy(target_coords)
+    target_coords.requires_grad = True
+
+    target_signals = torch.from_numpy(target_signals)
+    target_signals.requires_grad = True
+
+    target_features = AniGSG_model(target_coords, target_signals)
+
+    return initial_coords, initial_signals, target_features.detach().numpy()
 
 
 if __name__=='__main__':
@@ -126,9 +97,7 @@ if __name__=='__main__':
     omm_topology = fluid.topology
 
     #load the nnforce model
-    positions, signals, _ = read_data(DATASET_NAME, IDX_START, IDX_END)
-    aev_signals = ANI_AEV(positions)
-    signals, target_features = GSG_features(positions, signals, aev_signals)
+    positions, signals, target_features = read_data(DATASET_NAME, IDX_START, IDX_END)
 
 
     ex_nnforce = nnforce.PyTorchForce(file=osp.join(inputs_path, NNMODEL_NAME), initialSignals=signals,
