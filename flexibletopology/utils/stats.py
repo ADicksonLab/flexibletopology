@@ -1,10 +1,13 @@
+import sys
 import torch
 import numpy as np
+
+#sys.float_info.epsilon
+EPSILON = 1e-16
 
 #backward hook that sets nans to zeros
 def mask_grad(grad):
     grad[grad.ne(grad)] = 0.0
-
 
 @torch.jit.script
 def size_helper(a, axis):
@@ -63,14 +66,14 @@ def skew(a, axis=0, bias=True):
     n = a.shape[axis]
     m2 = moment(a, 2, axis)
     m3 = moment(a, 3, axis)
-    m2.register_hook(mask_grad)
-    m3.register_hook(mask_grad)
+    #m2.register_hook(mask_grad)
+    #m3.register_hook(mask_grad)
 
-    vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m3 / m2**1.5)
+    vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m3 / (m2**1.5+EPSILON))
     if not bias and size_helper(a, torch.tensor(axis)) > 2:
         n = size_helper(a, torch.tensor(axis))
         vals = torch.where(m2 > 0,
-                           torch.sqrt(torch.as_tensor((n-torch.tensor(1))*n, dtype=m2.dtype))/(n-torch.tensor(2))*m3/m2**1.5, vals)
+                           torch.sqrt(torch.as_tensor((n-torch.tensor(1))*n, dtype=m2.dtype))/(n-torch.tensor(2))*m3/(m2**1.5+EPSILON), vals)
 
     if vals.ndim == 0:
         return vals.item()
@@ -84,17 +87,12 @@ def kurtosis(a, axis=0, fisher=True, bias=True):
     m2 = moment(a, 2, axis)
     m4 = moment(a, 4, axis)
 
-
-    m2.register_hook(mask_grad)
-
-    m4.register_hook(mask_grad)
-
-    vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m4 / m2**2.0)
+    vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m4 / (m2**2.0+EPSILON))
 
     if not bias and size_helper(a, torch.tensor(axis))> 3:
         n = size_helper(a, torch.tensor(axis))
         vals = torch.where(m2 > 0,
-                           torch.tensor(1.0)/(n-2)/(n-3)*((n*n-1.0)*m4/m2**2.0-3*(n-1)**2.0)+torch.tensor(3.0),
+                           torch.tensor(1.0)/(n-2)/(n-3)*((n*n-1.0)*m4/(m2**2.0-3*(n-1)**2.0+EPSILON))+torch.tensor(3.0),
                         vals)
     if vals.ndim == 0:
         return vals.item()

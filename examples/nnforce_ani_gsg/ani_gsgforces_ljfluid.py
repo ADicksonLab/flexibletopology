@@ -28,7 +28,7 @@ NNMODEL_NAME = 'ani_gsg_model.pt'
 DATASET_NAME = 'openchem_3D_8_110.pkl'
 IDX_START = 117
 IDX_END = 177
-NNFORCESCALE = 1000.0
+NNFORCESCALE = 1.0
 
 #MD simulations settings
 NUM_ATOMS = 8
@@ -36,8 +36,8 @@ PRESSURE = 80*unit.atmospheres
 TEMPERATURE = 1.0 *unit.kelvin
 FRICTION_COEFFICIENT = 1.0/unit.picosecond
 STEP_SIZE = 0.001*unit.picoseconds
-STEPS = 1000
-REPORT_STEPS = 100
+STEPS = 1
+REPORT_STEPS = 1
 
 #Set input and output files name
 PDB = 'traj8.pdb'
@@ -61,7 +61,7 @@ def read_data(dataset_name, idx_start, idx_end):
 
     #run ANIGSG to get target features
     scf_flags = (True, True, False)
-    wavelet_num_steps = 8
+    wavelet_num_steps = 4
     radial_cutoff = 0.52
 
     AniGSG_model = AniGSGraph(wavelet_num_steps=wavelet_num_steps,
@@ -98,7 +98,6 @@ if __name__=='__main__':
 
     #load the nnforce model
     positions, signals, target_features = read_data(DATASET_NAME, IDX_START, IDX_END)
-
 
     ex_nnforce = nnforce.PyTorchForce(file=osp.join(inputs_path, NNMODEL_NAME), initialSignals=signals,
                                     targetFeatures=target_features, scale=NNFORCESCALE)

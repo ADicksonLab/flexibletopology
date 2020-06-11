@@ -95,9 +95,9 @@ if __name__=="__main__":
 
     wavelet_steps = 8
     scf_flags = (True, True, True)
-    print("The total number of molecules is 250")
-    nans_count = test_features(wavelet_steps, scf_flags)
-    print(f'Model with wavelet_steps {wavelet_steps} and scf flags of {scf_flags} has {nans_count} molecules with nan features')
+    # print("The total number of molecules is 250")
+    # nans_count = test_features(wavelet_steps, scf_flags)
+    # print(f'Model with wavelet_steps {wavelet_steps} and scf flags of {scf_flags} has {nans_count} molecules with nan features')
 
     nans_count = test_gradients(wavelet_steps, scf_flags)
     print(f'Model with wavelet_steps {wavelet_steps} and scf flags of {scf_flags} has {nans_count} molecules with nan coord_grad')

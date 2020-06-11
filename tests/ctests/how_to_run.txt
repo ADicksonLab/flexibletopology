@@ -1,0 +1,5 @@
+- mkdir build
+- cd build
+- cmake -std=c++14 -stdlib=libc++  -DCMAKE_PREFIX_PATH="Path to libtorch" ..
+- cmake --build . --config Release
+- ./test_model ../models/ani_gsg_model.pt

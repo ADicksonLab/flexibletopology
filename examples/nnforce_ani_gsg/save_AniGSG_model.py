@@ -24,8 +24,8 @@ if __name__=="__main__":
     with open(DATASET_NAME, 'rb') as pklf:
         data = pkl.load(pklf)
 
-    #number of atoms 27
-    mole_idx = 26
+    #number of atoms 8
+    mole_idx = 117
 
     #get the coordinates (nm)
     coordinates = np.copy(data['coords'][mole_idx]) / 10
@@ -33,7 +33,7 @@ if __name__=="__main__":
 
 
     #set the GSG parameters
-    wavelet_num_steps = 8
+    wavelet_num_steps = 4
     #nm
     radial_cutoff = 0.75
     scf_flags = (True, True, False)
@@ -48,32 +48,19 @@ if __name__=="__main__":
     signals = torch.from_numpy(signals)
     signals.requires_grad = True
 
-    ani_gsg_features = AniGSG_model(coordinates, signals)
-    loss_fun = torch.nn.MSELoss()
-    loss = loss_fun(ani_gsg_features, torch.rand_like(ani_gsg_features))
 
-    loss.backward()
+    device = torch.device('cpu')
+    AniGSG_model.to(device)
+    AniGSG_model.double()
+
     traced_script_module = torch.jit.trace(AniGSG_model,
                                            (coordinates, signals))
-    traced_script_module.save(MODEL_SAVE_PATH)
-    print("The model saved successfuly")
 
-    # try:
-    #     traced_script_module = torch.jit.trace(AniGSG_model,
-    #                                        (coordinates, signals))
-    #     traced_script_module.save(MODEL_SAVE_PATH)
-    #     print("The model saved successfuly")
-    # except:
+    try:
+        traced_script_module = torch.jit.trace(AniGSG_model,
+                                           (coordinates, signals))
+        traced_script_module.save(MODEL_SAVE_PATH)
+        print("The model saved successfully")
+    except:
 
-    #    print("Can not save the model")
-
-
-    # AniGSG_model =  torch.jit.load(MODEL_SAVE_PATH)
-    # ani_gsg_features = AniGSG_model(coordinates, signals)
-    # loss_fun = torch.nn.MSELoss()
-    # loss = loss_fun(ani_gsg_features, torch.rand_like(ani_gsg_features))
-    # loss.backward()
-    # coords_grad = coordinates.grad
-    # nans = torch.where(torch.isnan(coords_grad)==True)[0]
-    # if nans.shape[0] > 0 :
-    #     print("coords.grad has nan values")
+       print("Can not save the model")
