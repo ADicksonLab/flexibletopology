@@ -11,10 +11,9 @@ import simtk.unit as unit
 from openmm_testsystems.testsystems import LennardJonesFluid
 from sys import stdout
 import time
-import torch
-import torchani
 
-from flexibletopology.mlmodels.AniGSGraph import AniGSGraph
+
+#from flexibletopology.mlmodels.AniGSGraph import AniGSGraph
 import nnforce
 from nnforce_reporter import NNForceReporter
 
@@ -25,9 +24,8 @@ omm.Platform.loadPluginsFromDirectory('/usr/local/openmm/lib/plugins/')
 inputs_path = 'inputs'
 outputs_path ='outputs'
 NNMODEL_NAME = 'ani_gsg_model.pt'
-DATASET_NAME = 'openchem_3D_8_110.pkl'
-IDX_START = 117
-IDX_END = 177
+DATA_FILE = 'S117_E177_W4_110.pkl'
+
 NNFORCESCALE = 1.0
 
 #MD simulations settings
@@ -36,8 +34,8 @@ PRESSURE = 80*unit.atmospheres
 TEMPERATURE = 1.0 *unit.kelvin
 FRICTION_COEFFICIENT = 1.0/unit.picosecond
 STEP_SIZE = 0.001*unit.picoseconds
-STEPS = 1
-REPORT_STEPS = 1
+STEPS = 1000
+REPORT_STEPS = 100
 
 #Set input and output files name
 PDB = 'traj8.pdb'
@@ -46,38 +44,15 @@ EXNNFORCE_REPORTER = 'gsgforces_traj.h5'
 
 
 
-def read_data(dataset_name, idx_start, idx_end):
+def read_data(data_file_name):
 
-    dataset_path = osp.join(inputs_path, dataset_name)
+    dataset_path = osp.join(inputs_path, data_file_name)
 
     with open(dataset_path, 'rb') as pklf:
         data = pkl.load(pklf)
 
-    initial_signals = np.copy(data['gaff_signals_notype'][idx_start])
-    initial_coords = np.copy(data['coords'][idx_start]) / 10
 
-    target_signals = np.copy(data['gaff_signals_notype'][idx_end])
-    target_coords = np.copy(data['coords'][idx_end]) / 10
-
-    #run ANIGSG to get target features
-    scf_flags = (True, True, False)
-    wavelet_num_steps = 4
-    radial_cutoff = 0.52
-
-    AniGSG_model = AniGSGraph(wavelet_num_steps=wavelet_num_steps,
-                              radial_cutoff=radial_cutoff,
-                              scf_flags=scf_flags)
-
-
-    target_coords = torch.from_numpy(target_coords)
-    target_coords.requires_grad = True
-
-    target_signals = torch.from_numpy(target_signals)
-    target_signals.requires_grad = True
-
-    target_features = AniGSG_model(target_coords, target_signals)
-
-    return initial_coords, initial_signals, target_features.detach().numpy()
+    return data['initial_coords'], data['initial_signals'], data['target_features']
 
 
 if __name__=='__main__':
@@ -97,7 +72,7 @@ if __name__=='__main__':
     omm_topology = fluid.topology
 
     #load the nnforce model
-    positions, signals, target_features = read_data(DATASET_NAME, IDX_START, IDX_END)
+    positions, signals, target_features = read_data(DATA_FILE)
 
     ex_nnforce = nnforce.PyTorchForce(file=osp.join(inputs_path, NNMODEL_NAME), initialSignals=signals,
                                     targetFeatures=target_features, scale=NNFORCESCALE)

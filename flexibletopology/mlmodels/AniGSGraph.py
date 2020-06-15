@@ -3,11 +3,13 @@ import torch
 from torch import nn
 import numpy as np
 
-from flexibletopology.mlmodels.GSGraph import GSGraph
+
 from torch.jit import Final
 import torchani
 
+from .GSGraph import GSGraph
 from .aev import AEVComputer
+
 
 class AniGSGraph(nn.Module):
 
@@ -34,27 +36,26 @@ class AniGSGraph(nn.Module):
     def ani_aev(self, coordinates):
 
         num_atoms = coordinates.shape[0]
-        atom_types = ''
-        for i in range(num_atoms):
-            atom_types += 'C'
+
+        atom_types = ''.join(['C' for _ in range(num_atoms)])
 
         const_file = os.path.join(self.BASE_DIR,
                                   self.ANI_PARAMS_FILE)
-
         consts = torchani.neurochem.Constants(const_file)
-        aev_computer = AEVComputer(**consts)
         species = consts.species_to_tensor(atom_types).unsqueeze(0)
-        _, angular_aev_signals = aev_computer((species,
+
+        aev_computer = AEVComputer(**consts)
+        _, aev_signals = aev_computer((species,
                                        coordinates.unsqueeze(0)))
 
-        return angular_aev_signals
+        return aev_signals
 
     def forward(self, coordinates, signals):
 
-        angular_aev_signals = self.ani_aev(coordinates)
+        aev_signals = self.ani_aev(coordinates)
 
 
-        signals = torch.cat((angular_aev_signals.squeeze(0),
+        signals = torch.cat((aev_signals.squeeze(0),
                               signals), 1)
 
         features = self.gsg_model(coordinates, signals)
