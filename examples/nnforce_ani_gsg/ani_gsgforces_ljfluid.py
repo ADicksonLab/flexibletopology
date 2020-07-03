@@ -20,28 +20,28 @@ from nnforce_reporter import NNForceReporter
 omm.Platform.loadPluginsFromDirectory('/usr/local/openmm/lib/plugins/')
 
 
-
+IDX_START = 177
+IDX_END = 117
 inputs_path = 'inputs'
-outputs_path ='outputs'
+outputs_path = f'outputs/S{IDX_START}_E{IDX_END}'
 NNMODEL_NAME = 'ani_gsg_model.pt'
-DATA_FILE = 'S117_E177_W4_110.pkl'
-
-NNFORCESCALE = 1.0
+DATA_FILE = f'S{IDX_START}_E{IDX_END}_W4_110.pkl'
+NNFORCESCALE = 2000.0
 
 #MD simulations settings
 NUM_ATOMS = 8
-PRESSURE = 80*unit.atmospheres
-TEMPERATURE = 1.0 *unit.kelvin
-FRICTION_COEFFICIENT = 1.0/unit.picosecond
-STEP_SIZE = 0.001*unit.picoseconds
-STEPS = 1000
+PRESSURE = 80 * unit.atmospheres
+TEMPERATURE = 1.0 * unit.kelvin
+FRICTION_COEFFICIENT = 1.0 / unit.picosecond
+STEP_SIZE = 0.001 * unit.picoseconds
+STEPS = 100000
 REPORT_STEPS = 100
-
+EPSILON = 0.0*unit.kilocalories_per_mole
 #Set input and output files name
-PDB = 'traj8.pdb'
-SIM_TRAJ = 'ljfluid_traj.dcd'
-EXNNFORCE_REPORTER = 'gsgforces_traj.h5'
 
+PDB = 'traj8.pdb'
+SIM_TRAJ = f'ljfluid_{IDX_START}to{IDX_END}.dcd'
+EXNNFORCE_REPORTER = 'anigsgforces_traj.h5'
 
 
 def read_data(data_file_name):
@@ -59,7 +59,7 @@ if __name__=='__main__':
 
 
 
-    fluid = LennardJonesFluid(nparticles=NUM_ATOMS, epsilon=0.0*unit.kilocalories_per_mole)
+    fluid = LennardJonesFluid(nparticles=NUM_ATOMS, epsilon=EPSILON)
 
     integrator = omm.LangevinIntegrator(TEMPERATURE, FRICTION_COEFFICIENT, STEP_SIZE)
     system, positions = fluid.system, fluid.positions
@@ -118,4 +118,7 @@ if __name__=='__main__':
     traj.save_dcd(osp.join(outputs_path, SIM_TRAJ))
     print("Simulations Ends")
     end = time.time()
-    print(f"Simulation time = {np.round(end - begin, 3)}s")
+    print(f"Run time = {np.round(end - begin, 3)}s")
+    simulation_time = round((STEP_SIZE * STEPS).value_in_unit(unit.nanoseconds),
+                            2)
+    print(f"Simulation time: {simulation_time}ns")

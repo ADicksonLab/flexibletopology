@@ -35,7 +35,7 @@ if __name__=="__main__":
     #set the GSG parameters
     wavelet_num_steps = 4
     #nm
-    radial_cutoff = 0.75
+    radial_cutoff = 0.52
     scf_flags = (True, True, False)
 
     AniGSG_model = AniGSGraph(wavelet_num_steps=wavelet_num_steps,

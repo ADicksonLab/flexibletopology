@@ -4,7 +4,7 @@ import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 
-H5_TRAJFILE_PATH = 'outputs/gsgforces_traj.h5'
+H5_TRAJFILE_PATH = 'outputs/anigsgforces_traj.h5'
 
 if not osp.exists(H5_TRAJFILE_PATH):
     print(f"Can not find file {H5_TRAJFILE_PATH}")
