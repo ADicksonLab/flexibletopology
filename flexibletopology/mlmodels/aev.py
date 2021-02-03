@@ -214,7 +214,7 @@ def cumsum_from_zero(input_: Tensor) -> Tensor:
     torch.cumsum(input_[:-1], dim=0, out=cumsum[1:])
     return cumsum
 
-
+@torch.jit.script
 def triple_by_molecule(atom_index12: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
     """Input: indices for pairs of atoms that are close to each other.
     each pair only appear once, i.e. only one of the pairs (1, 2) and
@@ -523,7 +523,7 @@ class AEVComputer(torch.nn.Module):
         species, coordinates = input_
 
         if cell is None and pbc is None:
-            aev = compute_angular_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
+            #aev = compute_radial_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
             aev = compute_aev(species, coordinates, self.triu_index, self.constants(), self.sizes, None)
         else:
             assert (cell is not None and pbc is not None)

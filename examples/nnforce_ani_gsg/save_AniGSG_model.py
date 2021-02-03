@@ -53,14 +53,18 @@ if __name__=="__main__":
     AniGSG_model.to(device)
     AniGSG_model.double()
 
-    traced_script_module = torch.jit.trace(AniGSG_model,
-                                           (coordinates, signals))
+    script_model = torch.jit.script(AniGSG_model)
+    torch.jit.save(script_model, MODEL_SAVE_PATH)
 
-    try:
-        traced_script_module = torch.jit.trace(AniGSG_model,
-                                           (coordinates, signals))
-        traced_script_module.save(MODEL_SAVE_PATH)
-        print("The model saved successfully")
-    except:
 
-       print("Can not save the model")
+    # traced_script_module = torch.jit.trace(AniGSG_model,
+    #                                        (coordinates, signals))
+
+    # try:
+    #     traced_script_module = torch.jit.trace(AniGSG_model,
+    #                                        (coordinates, signals))
+    #     traced_script_module.save(MODEL_SAVE_PATH)
+    #     print("The model saved successfully")
+    # except:
+
+    #   print("Can not save the model")

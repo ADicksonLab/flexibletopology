@@ -11,6 +11,7 @@ import simtk.unit as unit
 from openmm_testsystems.testsystems import LennardJonesFluid
 from sys import stdout
 import time
+
 import nnforce
 from nnforce_reporter import NNForceReporter
 
@@ -59,6 +60,7 @@ def read_data(dataset_name, idx_start, idx_end):
     #convert to nm
     positions = np.copy(data['coords'][idx_start]) / 10
 
+    dd = torch.from_numpy(positions)
     return positions, signals, target_features
 
 

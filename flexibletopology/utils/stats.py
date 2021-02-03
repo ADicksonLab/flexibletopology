@@ -17,7 +17,7 @@ def distance_matrix(x):
     return torch.norm(x[:, None] - x, dim=2, p=2)
 
 
-def adjacency_matrix(positions, radial_cutoff):
+def adjacency_matrix(positions, radial_cutoff:float):
     dist = distance_matrix(positions)
     dist = torch.where(dist>radial_cutoff, torch.tensor(0.0, dtype=dist.dtype),
                         0.5 * torch.cos(np.pi * dist/radial_cutoff) + 0.5)
