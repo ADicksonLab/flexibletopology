@@ -1,23 +1,19 @@
 import sys
 import torch
 import numpy as np
+from torch import Tensor
+from typing import List
 
-#sys.float_info.epsilon
-EPSILON = 1e-16
 
-#backward hook that sets nans to zeros
-def mask_grad(grad):
-    grad[grad.ne(grad)] = 0.0
-
-@torch.jit.script
-def size_helper(a, axis):
-    return torch.tensor(a.shape[axis])
-
-def distance_matrix(x):
+def distance_matrix(x:Tensor):
     return torch.norm(x[:, None] - x, dim=2, p=2)
 
 
+<<<<<<< HEAD
 def adjacency_matrix(positions, radial_cutoff:float):
+=======
+def adjacency_matrix(positions:Tensor, radial_cutoff:float):
+>>>>>>> water_test
     dist = distance_matrix(positions)
     dist = torch.where(dist>radial_cutoff, torch.tensor(0.0, dtype=dist.dtype),
                         0.5 * torch.cos(np.pi * dist/radial_cutoff) + 0.5)
@@ -26,12 +22,25 @@ def adjacency_matrix(positions, radial_cutoff:float):
 
 
 
-def moment(a, moment=1, axis=0):
-    if moment == 1:
+def moment(a: Tensor, moment: int=1, dim: int=0):
+
+
+    if moment == 0:
+        # When moment equals 0, the result is 1, by definition.
+        shape = list(a.shape)
+        del shape[dim]
+        if len(shape) > 0:
+            # return an actual array of the appropriate shape
+            return torch.ones(shape)
+        else:
+            # the input was 1D, so return a scalar instead of a rank-0 array
+            return torch.tensor(1.0)
+
+    elif moment == 1:
         # By definition the first moment about the mean is 0.
         shape = list(a.shape)
-        del shape[axis]
-        if shape:
+        del shape[dim]
+        if len(shape) > 0:
             # return an actual array of the appropriate shape
             return torch.zeros(shape)
         else:
@@ -39,62 +48,64 @@ def moment(a, moment=1, axis=0):
             return torch.tensor(0.0)
     else:
         # Exponentiation by squares: form exponent sequence
-        n_list = [moment]
+
+        n_list: List[int] = [moment]
+
         current_n = moment
         while current_n > 2:
             if current_n % 2:
-                current_n = (current_n-1)/2
+                current_n = int((current_n - 1)/2)
             else:
-                current_n /= 2
+                current_n = int(current_n/ 2)
             n_list.append(current_n)
 
         # Starting point for exponentiation by squares
-        a_zero_mean = a - a.mean(axis).unsqueeze(axis)
+        a_zero_mean = a - a.mean(dim).unsqueeze(dim)
         if n_list[-1] == 1:
-            s = a_zero_mean
+            s = a_zero_mean.clone()
         else:
             s = a_zero_mean**2
 
         # Perform multiplications
-        for n in n_list[-2::-1]:
+        n_list.reverse()
+        del n_list[0]
+        for n in n_list:
             s = s**2
             if n % 2:
                 s *= a_zero_mean
-        return s.mean(axis)
+        return s.mean(dim)
 
-def skew(a, axis=0, bias=True):
-    n = a.shape[axis]
-    m2 = moment(a, 2, axis)
-    m3 = moment(a, 3, axis)
-    #m2.register_hook(mask_grad)
-    #m3.register_hook(mask_grad)
+def skew(a: Tensor, dim: int=0, bias: bool=True):
+    n = a.shape[dim]
+    m2 = moment(a, 2, dim)
+    m3 = moment(a, 3, dim)
 
-    vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m3 / (m2**1.5+EPSILON))
-    if not bias and size_helper(a, torch.tensor(axis)) > 2:
-        n = size_helper(a, torch.tensor(axis))
+    vals = torch.where(m2 == 0.0,
+                       torch.tensor(0.0, dtype=m2.dtype),
+                       m3/m2**1.5)
+    if not bias and n > 2:
         vals = torch.where(m2 > 0,
-                           torch.sqrt(torch.as_tensor((n-torch.tensor(1))*n, dtype=m2.dtype))/(n-torch.tensor(2))*m3/(m2**1.5+EPSILON), vals)
-
-    if vals.ndim == 0:
-        return vals.item()
+                           torch.sqrt(torch.tensor((n-1.0)*n))/(n-2)*m3/m2**1.5,
+                           vals)
 
     return vals
 
-#impliment kurtosis using the kurtosis code from scipy for two dimensional
-#array
 
-def kurtosis(a, axis=0, fisher=True, bias=True):
-    m2 = moment(a, 2, axis)
-    m4 = moment(a, 4, axis)
+def kurtosis(a: Tensor, dim: int=0, fisher: bool=True, bias:bool=True):
+    n = a.shape[dim]
+    m2 = moment(a, 2, dim)
+    m4 = moment(a, 4, dim)
 
-    vals = torch.where(m2 == 0.0, torch.tensor(0.0, dtype=m2.dtype), m4 / (m2**2.0+EPSILON))
+    vals = torch.where(m2 == 0.0,
+                       torch.tensor(0.0, dtype=m2.dtype),
+                       m4/m2**2.0)
 
-    if not bias and size_helper(a, torch.tensor(axis))> 3:
-        n = size_helper(a, torch.tensor(axis))
+    if not bias and n>3:
         vals = torch.where(m2 > 0,
-                           torch.tensor(1.0)/(n-2)/(n-3)*((n*n-1.0)*m4/(m2**2.0-3*(n-1)**2.0+EPSILON))+torch.tensor(3.0),
-                        vals)
+                            1.0/(n-2)/(n-3)* \
+                           ((n**2-1.0)*m4/m2**2.0-3.0*(n-1.0)**2.0)+3.0,
+                            vals)
     if vals.ndim == 0:
-        return vals.item()
+        return vals
 
     return vals - 3 if fisher else vals

@@ -1,14 +1,16 @@
 import torch
 from torch import nn
 import numpy as np
+from torch import Tensor
+from typing import Tuple, Optional, NamedTuple
 
 from flexibletopology.utils.stats import adjacency_matrix, skew, kurtosis
 
 
 class GSGraph(nn.Module):
 
-    def __init__(self, wavelet_num_steps=4, radial_cutoff=7.5,
-                 scf_flags=(True, True, True)):
+    def __init__(self, wavelet_num_steps: int=4, radial_cutoff: float=7.5,
+                 scf_flags: Tuple[bool, bool, bool]=(True, True, True)):
         super(GSGraph, self).__init__()
         self.is_trainable = True
         self.wavelet_num_steps = wavelet_num_steps
@@ -35,15 +37,15 @@ class GSGraph(nn.Module):
     def graph_wavelet(self, probability_mat):
 
         # 2^j
-        steps = []
-        for step in range(self.wavelet_num_steps):
+        #steps = []
+        # for step in range(self.wavelet_num_steps):
 
-            steps.append(2 ** step)
+        #     steps.append(2 ** step)
 
         wavelets = []
-        for i, j in enumerate(steps):
-            wavelet = torch.matrix_power(probability_mat, j) \
-                - torch.matrix_power(probability_mat, 2*j)
+        for j in range(self.wavelet_num_steps):
+            wavelet = torch.matrix_power(probability_mat, int(2 ** j)) \
+                - torch.matrix_power(probability_mat, int(2*(2 ** j)))
 
             wavelets.append(wavelet)
 
@@ -53,10 +55,10 @@ class GSGraph(nn.Module):
         #zero order feature calcuated using signal of the graph.
         features = []
 
-        features.append(torch.mean(signals, axis=0))
-        features.append(torch.var(signals, axis=0, unbiased=False))
-        features.append(skew(signals, axis=0, bias=False))
-        features.append(kurtosis(signals, axis=0, bias=False))
+        features.append(torch.mean(signals, dim=0))
+        features.append(torch.var(signals, dim=0, unbiased=False))
+        features.append(skew(signals, dim=0, bias=False))
+        features.append(kurtosis(signals, dim=0, bias=False))
 
         return torch.stack(features).reshape(-1, 1)
 
@@ -64,10 +66,10 @@ class GSGraph(nn.Module):
 
         wavelet_signals = torch.abs(torch.matmul(wavelets, signals))
         features = []
-        features.append(torch.mean(wavelet_signals, axis=1))
-        features.append(torch.var(wavelet_signals, axis=1, unbiased=False))
-        features.append(skew(wavelet_signals, axis=1, bias=False))
-        features.append(kurtosis(wavelet_signals, axis=1, bias=False))
+        features.append(torch.mean(wavelet_signals, dim=1))
+        features.append(torch.var(wavelet_signals, dim=1, unbiased=False))
+        features.append(skew(wavelet_signals, dim=1, bias=False))
+        features.append(kurtosis(wavelet_signals, dim=1, bias=False))
 
         return torch.stack(features).reshape(-1, 1)
 
@@ -79,14 +81,14 @@ class GSGraph(nn.Module):
                                             wavelet_signals[0:i]))
 
 
-        coefficents = torch.abs(torch.cat(coefficents, axis=0))
+        coefficents = torch.abs(torch.cat(coefficents, dim=0))
 
         features = []
 
-        features.append(torch.mean(coefficents, axis=1))
-        features.append(torch.var(coefficents, axis=1, unbiased=False))
-        features.append(skew(coefficents, axis=1, bias=False))
-        features.append(kurtosis(coefficents, axis=1, bias=False))
+        features.append(torch.mean(coefficents, dim=1))
+        features.append(torch.var(coefficents, dim=1, unbiased=False))
+        features.append(skew(coefficents, dim=1, bias=False))
+        features.append(kurtosis(coefficents, dim=1, bias=False))
 
         return torch.stack(features).reshape(-1, 1)
 
@@ -97,7 +99,7 @@ class GSGraph(nn.Module):
         return self.graph_wavelet(probability_mat)
 
 
-    def forward(self, positions, signals):
+    def forward(self, positions:Tensor, signals:Tensor):
 
         adj_mat = adjacency_matrix(positions, self.radial_cutoff)
 
@@ -118,4 +120,4 @@ class GSGraph(nn.Module):
             gsg_features.append(self.second_order_feature(wavelets, signals))
 
 
-        return  torch.cat(gsg_features, axis=0)
+        return  torch.cat(gsg_features, dim=0)

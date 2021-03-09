@@ -19,20 +19,20 @@ DATA = torch.rand(6, 4, 3)
 
 def test_skew():
 
-    fltop_skew = fltop_stats.skew(DATA, axis=AXIS, bias=BIAS)
+    fltop_skew = fltop_stats.skew(DATA, dim=AXIS, bias=BIAS)
     sci_skew = sci_stats.skew(DATA.numpy(), axis=AXIS, bias=BIAS)
     assert eq(np.round(fltop_skew.numpy(), PRECISION),
               np.round(sci_skew, PRECISION))
 
 def test_kurtosis():
-    fltop_kurtosis = fltop_stats.kurtosis(DATA, axis=AXIS, bias=BIAS)
+    fltop_kurtosis = fltop_stats.kurtosis(DATA, dim=AXIS, bias=BIAS)
     sci_kurtosis = sci_stats.kurtosis(DATA.numpy(), axis=AXIS, bias=BIAS)
     assert eq(np.round(fltop_kurtosis.numpy(), PRECISION),
               np.round(sci_kurtosis, PRECISION))
 
 
 def test_moment():
-    fltop_moment = fltop_stats.moment(DATA, moment=MOMENT, axis=AXIS)
+    fltop_moment = fltop_stats.moment(DATA, moment=MOMENT, dim=AXIS)
     sci_moment = sci_stats.moment(DATA.numpy(), moment=MOMENT, axis=AXIS)
     assert eq(np.round(fltop_moment.numpy(), PRECISION),
               np.round(sci_moment, PRECISION))
