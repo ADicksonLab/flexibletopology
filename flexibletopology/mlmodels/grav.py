@@ -24,11 +24,11 @@ class GravPotential(nn.Module):
 
         # center of geometry
         cog = torch.mean(positions,axis=0)
-        
+
         cog_dists_sq = torch.sum(torch.square(positions - cog),axis=1)
         cog_dists = torch.sqrt(cog_dists_sq)
 
-        en = torch.where(cog_dists > self.r0, 
+        en = torch.where(cog_dists > self.r0,
                          0.5 * self.k * torch.square(cog_dists - self.r0),
                          torch.zeros_like(cog_dists))
 

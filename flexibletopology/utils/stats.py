@@ -5,15 +5,11 @@ from torch import Tensor
 from typing import List
 
 
-def distance_matrix(x:Tensor):
+def distance_matrix(x: Tensor) -> Tensor:
     return torch.norm(x[:, None] - x, dim=2, p=2)
 
 
-<<<<<<< HEAD
-def adjacency_matrix(positions, radial_cutoff:float):
-=======
-def adjacency_matrix(positions:Tensor, radial_cutoff:float):
->>>>>>> water_test
+def adjacency_matrix(positions: Tensor, radial_cutoff: float) -> Tensor:
     dist = distance_matrix(positions)
     dist = torch.where(dist>radial_cutoff, torch.tensor(0.0, dtype=dist.dtype),
                         0.5 * torch.cos(np.pi * dist/radial_cutoff) + 0.5)
@@ -22,9 +18,7 @@ def adjacency_matrix(positions:Tensor, radial_cutoff:float):
 
 
 
-def moment(a: Tensor, moment: int=1, dim: int=0):
-
-
+def moment(a: Tensor, moment: int=1, dim: int=0) -> Tensor:
     if moment == 0:
         # When moment equals 0, the result is 1, by definition.
         shape = list(a.shape)
@@ -75,7 +69,7 @@ def moment(a: Tensor, moment: int=1, dim: int=0):
                 s *= a_zero_mean
         return s.mean(dim)
 
-def skew(a: Tensor, dim: int=0, bias: bool=True):
+def skew(a: Tensor, dim: int=0, bias: bool=True) -> Tensor:
     n = a.shape[dim]
     m2 = moment(a, 2, dim)
     m3 = moment(a, 3, dim)
@@ -87,11 +81,14 @@ def skew(a: Tensor, dim: int=0, bias: bool=True):
         vals = torch.where(m2 > 0,
                            torch.sqrt(torch.tensor((n-1.0)*n))/(n-2)*m3/m2**1.5,
                            vals)
+    if vals.ndim == 0:
+        return vals
 
     return vals
 
 
-def kurtosis(a: Tensor, dim: int=0, fisher: bool=True, bias:bool=True):
+def kurtosis(a: Tensor, dim: int=0, fisher: bool=True,
+             bias: bool=True) -> Tensor:
     n = a.shape[dim]
     m2 = moment(a, 2, dim)
     m4 = moment(a, 4, dim)
