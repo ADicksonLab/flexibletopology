@@ -1,0 +1,12 @@
+graft src
+
+include AUTHORS.org
+include LICENSE
+include README.org
+
+include pyproject.toml
+
+include requirements.in
+include versioneer.py
+
+global-exclude *.py[co] __pycache__ *.so *~

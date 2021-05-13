@@ -1,0 +1,8 @@
+numpy
+scikit-learn
+
+
+# NOTE: doesn't work with pip
+# rdkit
+# pytorch
+# openbabel
