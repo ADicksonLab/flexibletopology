@@ -7,17 +7,16 @@ from simtk import unit
 class CustomLPIntegrator(omm.CustomIntegrator):
     def __init__(self, n_ghosts, timestep=1.0 * unit.femtoseconds,
                  m_lambda=10, m_charge=10,
-                 m_sigma=10, m_epsilon=10):
+                 m_sigma=10, m_epsilon=10, bounds=None):
 
         super(CustomLPIntegrator, self).__init__(timestep)
-        lambda_min = 0.0
-        lambda_max = 1.0
-        charge_min = -1.0
-        charge_max = 1.0
-        sigma_min = 0.07
-        sigma_max = 0.50
-        epsilon_min = 0.15
-        epsilon_max = 1.0
+
+        if bounds is None:
+            bounds = {}
+            bounds['lambda'] = (0.0, 1.0)
+            bounds['charge'] = (-1.0, 1.0)
+            bounds['sigma'] = (0.07, 0.50)
+            bounds['epsilon'] = (0.15, 1.0)
 
         global_parameters = ['charge', 'sigma', 'epsilon', 'lambda']
 
@@ -54,11 +53,8 @@ class CustomLPIntegrator(omm.CustomIntegrator):
                                       f"v{parameter_name}_g{idx}+dt*f{parameter_name}_g{idx}/m_{parameter_name}")
 
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                      f"{parameter_name}_g{idx}+dt*v{parameter_name}_g{idx}")
-
-                # self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                #                       f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx}"
-                #                       f",{parameter_name}_max),{parameter_name}_min)")
+                                      f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},"
+                                      f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
 
         self.addUpdateContextState()
 
@@ -66,17 +62,16 @@ class CustomLPIntegrator(omm.CustomIntegrator):
 class CustomVerletIntegrator(omm.CustomIntegrator):
     def __init__(self, n_ghosts, timestep=1.0 * unit.femtoseconds,
                  m_lambda=10, m_charge=10, m_sigma=10,
-                 m_epsilon=10):
+                 m_epsilon=10, bounds=None):
 
         super(CustomVerletIntegrator, self).__init__(timestep)
+        if bounds is None:
+            bounds = {}
+            bounds['lambda'] = (0.0, 1.0)
+            bounds['charge'] = (-1.0, 1.0)
+            bounds['sigma'] = (0.07, 0.50)
+            bounds['epsilon'] = (0.15, 1.0)
 
-        lambda_min = 0.0
-        lambda_max = 1.0
-        charge_min = -1.0
-        charge_max = 1.0
-        sigma_min = 0.02
-        sigma_max = 0.20
-        epsilon_min = 0.2
         epsilon_max = 10.0
         global_parameters = ['charge', 'sigma', 'epsilon', 'lambda']
 
@@ -113,11 +108,8 @@ class CustomVerletIntegrator(omm.CustomIntegrator):
                                       f"v{parameter_name}_g{idx}+0.5*dt+f{parameter_name}_g{idx}/m_{parameter_name}")
 
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                      f"{parameter_name}_g{idx}+dt*v{parameter_name}_g{idx}")
-
-                # self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                #                       f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},"
-                #                       f"{parameter_name}_max),{parameter_name}_min)")
+                                      f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},"
+                                      f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
 
 
 # class CustomVerletIntegrator(omm.CustomIntegrator):
