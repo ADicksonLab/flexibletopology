@@ -56,7 +56,6 @@ class CustomLPIntegrator(omm.CustomIntegrator):
                                       f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},"
                                       f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
 
-        self.addUpdateContextState()
 
 
 class CustomVerletIntegrator(omm.CustomIntegrator):
