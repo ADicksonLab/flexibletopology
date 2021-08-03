@@ -50,10 +50,15 @@ class CustomLPIntegrator(omm.CustomIntegrator):
         for parameter_name in global_parameters:
             for idx in range(n_ghosts):
                 self.addComputeGlobal(f"v{parameter_name}_g{idx}",
-                                      f"v{parameter_name}_g{idx}+dt*f{parameter_name}_g{idx}/nu_{parameter_name}")
+                                      f"v{parameter_name}_g{idx}+dt*"
+                                      f"f{parameter_name}_g{idx}/"
+                                      f"nu_{parameter_name}")
 
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                      f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
+                                      f"max(min({parameter_name}_g{idx}+dt*"
+                                      f"v{parameter_name}_g{idx},"
+                                      f"{bounds[parameter_name][1]}),"
+                                      f"{bounds[parameter_name][0]})")
 
         # self.addUpdateContextState()
 
@@ -107,7 +112,8 @@ class CustomVerletIntegrator(omm.CustomIntegrator):
                                       f"v{parameter_name}_g{idx}+0.5*dt+f{parameter_name}_g{idx}/nu_{parameter_name}")
 
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                      f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
+                                      f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},"
+                                      f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
 
 
 class CustomLGIntegrator(omm.CustomIntegrator):
@@ -150,6 +156,6 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         for idx in range(n_ghosts):
             self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                   f"max(min({parameter_name}_g{idx} + dt*((1.0/"
-                                  "({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
-                                  " + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian),"
-                                  "{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
+                                  f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
+                                  f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian),"
+                                  f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
