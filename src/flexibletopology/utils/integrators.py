@@ -154,7 +154,8 @@ class CustomLGIntegrator(omm.CustomIntegrator):
                                       f"-deriv(energy, {parameter_name}_g{idx})")
 
         for idx in range(n_ghosts):
-            self.addComputeGlobal(f"{parameter_name}_g{idx}",
+            for parameter_name in global_parameters:
+                self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                   f"max(min({parameter_name}_g{idx} + dt*((1.0/"
                                   f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
                                   f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian),"
