@@ -6,39 +6,34 @@ import math
 
 
 class CustomLPIntegrator(omm.CustomIntegrator):
+
+    GLOBAL_PARAMETERS = ['lambda', 'charge', 'sigma', 'epsilon']
     def __init__(self, n_ghosts, timestep=1.0 * unit.femtoseconds,
-                 nu_lambda=10, nu_charge=10,
-                 nu_sigma=10, nu_epsilon=10, bounds=None):
+                 coeffs=None, bounds=None):
 
         super(CustomLPIntegrator, self).__init__(timestep)
-        if bounds is None:
-            bounds = {}
-            bounds['lambda'] = (0.0, 1.0)
-            bounds['charge'] = (-1.0, 1.0)
-            bounds['sigma'] = (0.07, 0.50)
-            bounds['epsilon'] = (0.15, 1.0)
-
-        global_parameters = ['charge', 'sigma', 'epsilon', 'lambda']
+        assert coeffs is not None, "Coefficients must be given."
+        assert bounds is not None, "Parameter bounds must be given."
 
         # initialize
         self.addPerDofVariable("x0", 0)
 
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addGlobalVariable(f"f{parameter_name}_g{idx}", 1.0)
                 self.addGlobalVariable(f"v{parameter_name}_g{idx}", 0.0)
 
-        self.addGlobalVariable("nu_charge", nu_charge)
-        self.addGlobalVariable("nu_sigma", nu_sigma)
-        self.addGlobalVariable("nu_epsilon", nu_epsilon)
-        self.addGlobalVariable("nu_lambda", nu_lambda)
+        self.addGlobalVariable("coeffs_charge", coeffs['charge'])
+        self.addGlobalVariable("coeffs_sigma", coeffs['sigma'])
+        self.addGlobalVariable("coeffs_epsilon", coeffs['epsilon'])
+        self.addGlobalVariable("coeffs_lambda", coeffs['lambda'])
 
         self.addUpdateContextState()
         # calcuate new positions and velocities
         self.addComputePerDof("x0", "x")
         self.addComputePerDof("v", "v+dt*f/m")
 
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addComputeGlobal(f"f{parameter_name}_g{idx}",
                                       f"-deriv(energy, {parameter_name}_g{idx})")
@@ -47,12 +42,12 @@ class CustomLPIntegrator(omm.CustomIntegrator):
         self.addConstrainPositions()
         self.addComputePerDof("v", "(x-x0)/dt")
         # parameters
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addComputeGlobal(f"v{parameter_name}_g{idx}",
                                       f"v{parameter_name}_g{idx}+dt*"
                                       f"f{parameter_name}_g{idx}/"
-                                      f"nu_{parameter_name}")
+                                      f"coeffs_{parameter_name}")
 
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                       f"max(min({parameter_name}_g{idx}+dt*"
@@ -60,37 +55,31 @@ class CustomLPIntegrator(omm.CustomIntegrator):
                                       f"{bounds[parameter_name][1]}),"
                                       f"{bounds[parameter_name][0]})")
 
-        # self.addUpdateContextState()
-
 
 class CustomVerletIntegrator(omm.CustomIntegrator):
+
+    GLOBAL_PARAMETERS = ['lambda', 'charge', 'sigma', 'epsilon']
+
     def __init__(self, n_ghosts, timestep=1.0 * unit.femtoseconds,
-                 nu_lambda=10, nu_charge=10, nu_sigma=10,
-                 nu_epsilon=10, bounds=None):
+                 coeffs=None, bounds=None):
 
         super(CustomVerletIntegrator, self).__init__(timestep)
 
-        if bounds is None:
-            bounds = {}
-            bounds['lambda'] = (0.0, 1.0)
-            bounds['charge'] = (-1.0, 1.0)
-            bounds['sigma'] = (0.07, 0.50)
-            bounds['epsilon'] = (0.15, 1.0)
-
-        global_parameters = ['charge', 'sigma', 'epsilon', 'lambda']
+        assert coeffs is not None, "Coefficients must be given."
+        assert bounds is not None, "Parameter bounds must be given."
 
         # variable initialization
         self.addPerDofVariable("x1", 0)
 
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addGlobalVariable(f"f{parameter_name}_g{idx}", 1.0)
                 self.addGlobalVariable(f"v{parameter_name}_g{idx}", 0.0)
 
-        self.addGlobalVariable("nu_charge", nu_charge)
-        self.addGlobalVariable("nu_sigma", nu_sigma)
-        self.addGlobalVariable("nu_epsilon", nu_epsilon)
-        self.addGlobalVariable("nu_lambda", nu_lambda)
+        self.addGlobalVariable("coeffs_charge", coeffs['charge'])
+        self.addGlobalVariable("coeffs_sigma", coeffs['sigma'])
+        self.addGlobalVariable("coeffs_epsilon", coeffs['epsilon'])
+        self.addGlobalVariable("coeffs_lambda", coeffs['lambda'])
 
         self.addUpdateContextState()
 
@@ -101,15 +90,16 @@ class CustomVerletIntegrator(omm.CustomIntegrator):
         self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
         self.addConstrainVelocities()
 
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addComputeGlobal(f"f{parameter_name}_g{idx}",
                                       f"-deriv(energy, {parameter_name}_g{idx})")
 
         for idx in range(n_ghosts):
-            for parameter_name in global_parameters:
+            for parameter_name in self.GLOBAL_PARAMETERS:
                 self.addComputeGlobal(f"v{parameter_name}_g{idx}",
-                                      f"v{parameter_name}_g{idx}+0.5*dt+f{parameter_name}_g{idx}/nu_{parameter_name}")
+                                      f"v{parameter_name}_g{idx}+0.5*dt+"
+                                      f"f{parameter_name}_g{idx}/coeffs_{parameter_name}")
 
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                       f"max(min({parameter_name}_g{idx}+dt*v{parameter_name}_g{idx},"
@@ -117,6 +107,9 @@ class CustomVerletIntegrator(omm.CustomIntegrator):
 
 
 class CustomLGIntegrator(omm.CustomIntegrator):
+
+    GLOBAL_PARAMETERS = ['lambda', 'charge', 'sigma', 'epsilon']
+
     def __init__(self, n_ghosts, temperature, friction_coeff, timestep,
                  coeffs=None, bounds=None):
 
@@ -125,9 +118,7 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         assert coeffs is not None, "Coefficients must be given."
         assert bounds is not None, "Parameter bounds must be given."
 
-        global_parameters = ['lambda', 'charge', 'sigma', 'epsilon']
-
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addGlobalVariable(f"f{parameter_name}_g{idx}", 1.0)
 
@@ -142,7 +133,7 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         self.addComputePerDof("v", "v + dt*f/m")
         self.addConstrainVelocities()
 
-        for parameter_name in global_parameters:
+        for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addComputeGlobal(f"f{parameter_name}_g{idx}",
                                       f"-deriv(energy, {parameter_name}_g{idx})")
@@ -155,7 +146,7 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         self.addComputePerDof("v", "v + (x-x1)/dt")
 
         for idx in range(n_ghosts):
-            for parameter_name in global_parameters:
+            for parameter_name in self.GLOBAL_PARAMETERS:
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                       f"max(min({parameter_name}_g{idx} + dt*((1.0/"
                                       f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
