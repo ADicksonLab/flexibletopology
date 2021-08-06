@@ -141,6 +141,12 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         self.addUpdateContextState()
         self.addComputePerDof("v", "v + dt*f/m")
         self.addConstrainVelocities()
+
+        for parameter_name in global_parameters:
+            for idx in range(n_ghosts):
+                self.addComputeGlobal(f"f{parameter_name}_g{idx}",
+                                      f"-deriv(energy, {parameter_name}_g{idx})")
+
         self.addComputePerDof("x", "x + 0.5*dt*v")
         self.addComputePerDof("v", "a*v + b*sqrt(kT/m)*gaussian")
         self.addComputePerDof("x", "x + 0.5*dt*v")
@@ -148,15 +154,10 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         self.addConstrainPositions()
         self.addComputePerDof("v", "v + (x-x1)/dt")
 
-        for parameter_name in global_parameters:
-            for idx in range(n_ghosts):
-                self.addComputeGlobal(f"f{parameter_name}_g{idx}",
-                                      f"-deriv(energy, {parameter_name}_g{idx})")
-
         for idx in range(n_ghosts):
             for parameter_name in global_parameters:
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                  f"max(min({parameter_name}_g{idx} + dt*((1.0/"
-                                  f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
-                                  f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian),"
-                                  f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
+                                      f"max(min({parameter_name}_g{idx} + dt*((1.0/"
+                                      f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
+                                      f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian),"
+                                      f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
