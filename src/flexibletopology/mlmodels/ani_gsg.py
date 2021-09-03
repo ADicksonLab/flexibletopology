@@ -14,9 +14,10 @@ from .gsg import GSG
 
 class AniGSG(nn.Module):
 
-    def __init__(self,max_wavelet_scale: int=4, radial_cutoff: float=0.52,
-                 sm_operators: Tuple[bool, bool, bool]=(True, True, True),
-                 consts_file: str=''):
+    def __init__(self, max_wavelet_scale: int = 4, radial_cutoff: float = 0.52,
+                 sm_operators: Tuple[bool, bool, bool] = (True, True, True),
+                 consts_file: str = '',
+                 sd_params: Optional[Tuple[float, float]] = None):
 
         super().__init__()
         self.is_trainable = False
@@ -24,10 +25,12 @@ class AniGSG(nn.Module):
         self.max_wavelet_scale = max_wavelet_scale
         self.radial_cutoff = radial_cutoff
         self.sm_operators = sm_operators
+        self.sd_params = sd_params
 
         self.gsg_model = GSG(max_wavelet_scale=self.max_wavelet_scale,
                              radial_cutoff=self.radial_cutoff,
-                             sm_operators=self.sm_operators)
+                             sm_operators=self.sm_operators,
+                             sd_params=self.sd_params)
 
         consts = torchani.neurochem.Constants(self.consts_file)
         self.aev_computer = torchani.AEVComputer(**consts)
@@ -36,11 +39,10 @@ class AniGSG(nn.Module):
 
         species = torch.ones((1, coordinates.shape[0]), dtype=torch.int64)
         _, aev_signals = self.aev_computer((species,
-                                        coordinates.unsqueeze(0)))
-
+                                            coordinates.unsqueeze(0)))
 
         signals = torch.cat((aev_signals.squeeze(0),
-                              signals), 1)
+                             signals), 1)
 
         features = self.gsg_model(coordinates, signals)
         return features

@@ -10,13 +10,15 @@ from flexibletopology.utils.stats import adjacency_matrix, skew, kurtosis
 class GSG(nn.Module):
 
     def __init__(self, max_wavelet_scale: int = 4, radial_cutoff: float = 0.52,
-                 sm_operators: Tuple[bool, bool, bool] = (True, True, True)):
+                 sm_operators: Tuple[bool, bool, bool] = (True, True, True),
+                 sd_params: Optional[Tuple[float, float]] = None):
 
         super().__init__()
         self.is_trainable = False
         self.max_wavelet_scale = max_wavelet_scale
         self.radial_cutoff = radial_cutoff
         self.sm_operators = sm_operators
+        self.sd_params = sd_params
 
     def lazy_random_walk(self, adj_mat: Tensor) -> Tensor:
 
@@ -27,7 +29,7 @@ class GSG(nn.Module):
         adj_degree = torch.div(adj_mat, degree_mat)
 
         # sets NAN vlaues to zero
-        #adj_degree = np.nan_to_num(adj_degree)
+        # adj_degree = np.nan_to_num(adj_degree)
 
         identity = torch.zeros_like(adj_degree)
         identity.fill_diagonal_(1.0)
@@ -92,6 +94,11 @@ class GSG(nn.Module):
 
         return self.graph_wavelet(probability_mat)
 
+    def standardize(self, signals: Tensor) -> Tensor:
+        sd_params = torch.tensor(self.sd_params,
+                                 device=signals.device)
+        return (signals - sd_params[:, 0]) / sd_params[:, 1]
+
     def forward(self, positions: Tensor, signals: Tensor) -> Tensor:
 
         adj_mat = adjacency_matrix(positions, self.radial_cutoff)
@@ -101,6 +108,8 @@ class GSG(nn.Module):
         wavelets = self.graph_wavelet(probability_mat)
 
         gsg_features = []
+        if self.sd_params is not None:
+            signals = self.standardize(signals)
 
         if self.sm_operators[0]:
             gsg_features.append(self.zero_order_feature(signals))

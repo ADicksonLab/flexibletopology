@@ -16,11 +16,13 @@ def save_gsg_model(max_wavelet_scale=4,
                    radial_cutoff=0.52,
                    sm_operators=(True, True, True),
                    platform='cpu',
-                   save_path='gsg.pt'):
+                   save_path='gsg.pt',
+                   sd_params=None):
 
     GSG_model = GSG(max_wavelet_scale=max_wavelet_scale,
                     radial_cutoff=radial_cutoff,
-                    sm_operators=sm_operators)
+                    sm_operators=sm_operators,
+                    sd_params=sd_params)
 
     device = torch.device(platform)
     GSG_model.to(device)
@@ -41,7 +43,8 @@ def save_anigsg_model(max_wavelet_scale=4,
                       radial_cutoff=0.52,
                       sm_operators=(True, True, True),
                       platform='cpu',
-                      save_path='anigsg.pt'):
+                      save_path='anigsg.pt',
+                      sd_params=None):
 
     base_dir = os.path.dirname(os.path.realpath(__file__))
     ani_params_file = '../resources/ani_params/ani-1ccx_8x_nm.params'
@@ -51,7 +54,8 @@ def save_anigsg_model(max_wavelet_scale=4,
     AniGSG_model = AniGSG(max_wavelet_scale=max_wavelet_scale,
                           radial_cutoff=radial_cutoff,
                           sm_operators=sm_operators,
-                          consts_file=consts_file)
+                          consts_file=consts_file,
+                          sd_params=sd_params)
 
     device = torch.device(platform)
     AniGSG_model.to(device)
