@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 from torch import Tensor
-from typing import Tuple, Optional, NamedTuple
+from typing import Tuple, Optional, NamedTuple, List
 
 from flexibletopology.utils.stats import adjacency_matrix, skew, kurtosis
 
@@ -11,7 +11,7 @@ class GSG(nn.Module):
 
     def __init__(self, max_wavelet_scale: int = 4, radial_cutoff: float = 0.52,
                  sm_operators: Tuple[bool, bool, bool] = (True, True, True),
-                 sd_params: Optional[Tuple[float, float]] = None):
+                 sd_params: Optional[List[List[float]]] = None):
 
         super().__init__()
         self.is_trainable = False
