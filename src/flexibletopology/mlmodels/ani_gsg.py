@@ -17,7 +17,7 @@ class AniGSG(nn.Module):
     def __init__(self, max_wavelet_scale: int = 4, radial_cutoff: float = 0.52,
                  sm_operators: Tuple[bool, bool, bool] = (True, True, True),
                  consts_file: str = '',
-                 sd_params: Optional[Tuple[float, float]] = None):
+                 sd_params: Optional[List[List[float]]] = None):
 
         super().__init__()
         self.is_trainable = False

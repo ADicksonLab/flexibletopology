@@ -1,6 +1,6 @@
 import os
 import numpy as np
-#import h5py
+import h5py
 import pickle as pkl
 import simtk.unit as unit
 from collections import defaultdict
@@ -13,7 +13,7 @@ FIELDS = ['time', 'ml_forces', 'ml_potentialEnergy', 'ml_velosities',
 
 class H5Reporter(object):
 
-    GLOBAL_VARIABLES = ['charge_g', 'sigma_g', 'epsilon_g', 'lambda_g']
+    GLOBAL_VARIABLES = ['charge', 'sigma', 'epsilon', 'lambda']
 
     def __init__(self, traj_file_path, reportInterval=100, groups=30,
                  num_ghosts=3, time=True, forces=True, potentialEnergy=True,
@@ -56,7 +56,7 @@ class H5Reporter(object):
         if self._global_variables:
             for variable_name in self.GLOBAL_VARIABLES:
                 for gh_idx in range(self.num_ghosts):
-                    self.h5.create_dataset(f'/global_variables/{gh_idx}/{variable_name}', (0, ),
+                    self.h5.create_dataset(f'global_variables/{gh_idx}/{variable_name}', (0, ),
                                            maxshape=(None, ))
 
     # Modified from openmm hdf5.py script
@@ -109,7 +109,7 @@ class H5Reporter(object):
 
         ml_state = simulation.context.getState(getForces=True, getEnergy=True,
                                                getPositions=True, getVelocities=True,
-                                               groups={self.groups})
+                                               groups={self._groups})
 
         state = simulation.context.getState(getPositions=True)
 
@@ -135,14 +135,13 @@ class H5Reporter(object):
             velocities = ml_state.getVelocities(asNumpy=True)
             self._extend_traj_field('velosities', velocities)
 
-        if slef._global_variables:
+        if self._global_variables:
             for variable_name in self.GLOBAL_VARIABLES:
-                gvalues = []
                 for gh_idx in range(self.num_ghosts):
-                    gvalues.append(simulation.context.getParameter(
-                        f'{variable_name}{gh_idx}'))
-                self._extend_traj_field(f'/global_variables/{gh_idx}/{variable_name}',
-                                        np.array(gvalues))
+                    gvalues = simulation.context.getParameter(
+                        f'{variable_name}_g{gh_idx}')
+                    self._extend_traj_field(f'global_variables/{gh_idx}/{variable_name}',
+                                            np.array(gvalues))
 
         self.h5.flush()
 
