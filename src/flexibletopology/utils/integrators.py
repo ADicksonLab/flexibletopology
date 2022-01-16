@@ -144,11 +144,21 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         self.addComputePerDof("x1", "x")
         self.addConstrainPositions()
         self.addComputePerDof("v", "v + (x-x1)/dt")
+        #     for parameter_name in self.GLOBAL_PARAMETERS:
+        #         self.addComputeGlobal(f"{parameter_name}_g{idx}",
+        #                               f"{parameter_name}_g{idx} + dt*f{parameter_name}_g{idx}")
+
+        # for idx in range(n_ghosts):
+        #     for parameter_name in self.GLOBAL_PARAMETERS:
+        #         self.addComputeGlobal(f"{parameter_name}_g{idx}",
+        #                               f"{parameter_name}_g{idx} + dt*((1.0/"
+        #                               f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
+        #                               f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian)")
 
         for idx in range(n_ghosts):
             for parameter_name in self.GLOBAL_PARAMETERS:
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                       f"max(min({parameter_name}_g{idx} + dt*((1.0/"
                                       f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
-                                      f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian),"
+                                      f" + sqrt(0*kT/({coeffs[parameter_name]}))*gaussian),"
                                       f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")

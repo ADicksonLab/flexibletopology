@@ -7,8 +7,8 @@ from collections import defaultdict
 
 MAX_ATOM_NUMS = 300
 
-FIELDS = ['time', 'ml_forces', 'ml_potentialEnergy', 'ml_velosities',
-          'ml_coordinates']
+# FIELDS = ['time', 'ml_forces', 'ml_potentialEnergy', 'ml_velosities',
+#           'ml_coordinates']
 
 
 class H5Reporter(object):
@@ -111,8 +111,6 @@ class H5Reporter(object):
                                                getPositions=True, getVelocities=True,
                                                groups={self._groups})
 
-        state = simulation.context.getState(getPositions=True)
-
         if self._time:
             time = ml_state.getTime().value_in_unit(unit.picosecond)
             self._extend_traj_field('time', np.array(time))
@@ -138,6 +136,7 @@ class H5Reporter(object):
         if self._global_variables:
             for variable_name in self.GLOBAL_VARIABLES:
                 for gh_idx in range(self.num_ghosts):
+                    # simulation.context.getParameters()
                     gvalues = simulation.context.getParameter(
                         f'{variable_name}_g{gh_idx}')
                     self._extend_traj_field(f'global_variables/{gh_idx}/{variable_name}',
