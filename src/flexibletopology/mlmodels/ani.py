@@ -25,7 +25,7 @@ class Ani(nn.Module):
 
     def forward(self, coordinates: Tensor) -> Tensor:
 
-        species = torch.ones((1, coordinates.shape[0]), dtype=torch.int64)
+        species = torch.zeros((1, coordinates.shape[0]), dtype=torch.int64)
         _, aev_signals = self.aev_computer((species,
                                             coordinates.unsqueeze(0)))
 
