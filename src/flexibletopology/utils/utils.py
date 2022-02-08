@@ -73,12 +73,8 @@ def save_ani_model(platform='cpu',
     ani_params_file = '../resources/ani_params/ani-1ccx_8x_nm_refined.params'
 
     consts_file = os.path.join(base_dir, ani_params_file)
-    use_cuda_extension = True if platform == 'cuda' else False
 
-    ani_model = Ani(consts_file=consts_file)
-
-    device = torch.device(platform)
-    ani_model.to(device)
+    ani_model = Ani(platform=platform, consts_file=consts_file)
 
     try:
         script_module = torch.jit.script(ani_model)

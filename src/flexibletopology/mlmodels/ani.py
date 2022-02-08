@@ -14,18 +14,30 @@ from .gsg import GSG
 
 class Ani(nn.Module):
 
-    def __init__(self, consts_file: str = ''):
+    def __init__(self, platform: str = '', consts_file: str = ''):
 
         super().__init__()
         self.is_trainable = False
         self.consts_file = consts_file
+        self.device = torch.device(platform)
 
         consts = torchani.neurochem.Constants(self.consts_file)
-        self.aev_computer = torchani.AEVComputer(**consts)
+        cuda_consts = {}
+        if platform == 'cuda':
+            for key, value in consts.items():
+                if torch.is_tensor(value):
+                    cuda_consts.update({key: value.to(self.device)})
+                else:
+                    cuda_consts.update({key: value})
+            self.aev_computer = torchani.AEVComputer(**cuda_consts)
+        else:
+            self.aev_computer = torchani.AEVComputer(**consts)
 
     def forward(self, coordinates: Tensor) -> Tensor:
 
-        species = torch.zeros((1, coordinates.shape[0]), dtype=torch.int64)
+        species = torch.zeros((1, coordinates.shape[0]),
+                              dtype=torch.int64,
+                              device=coordinates.device)
         _, aev_signals = self.aev_computer((species,
                                             coordinates.unsqueeze(0)))
 
