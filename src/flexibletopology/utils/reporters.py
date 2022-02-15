@@ -6,7 +6,7 @@ import simtk.unit as unit
 from collections import defaultdict
 import openmm.openmm as omm
 
-MAX_ATOM_NUMS = 300
+MAX_ATOM_NUMS = 100000
 
 # FIELDS = ['time', 'ml_forces', 'ml_potentialEnergy', 'ml_velosities',
 #           'ml_coordinates']
