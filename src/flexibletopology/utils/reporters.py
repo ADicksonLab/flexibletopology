@@ -4,7 +4,7 @@ import h5py
 import pickle as pkl
 import simtk.unit as unit
 from collections import defaultdict
-import simtk.openmm as omm
+import openmm.openmm as omm
 
 MAX_ATOM_NUMS = 300
 

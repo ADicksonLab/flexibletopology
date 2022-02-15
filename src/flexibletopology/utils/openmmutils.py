@@ -1,7 +1,7 @@
 import os.path as osp
 import numpy as np
 from simtk import unit
-import simtk.openmm.app as omma
+import openmm.app as omma
 
 
 def read_params(filename, parfiles_path):
@@ -53,3 +53,31 @@ def getForceByClass(system, klass):
         f = system.getForce(i)
         if isinstance(f, klass):
             return f
+
+
+def writeBondEnergyString(num_ghosts):
+    # write main energy expression
+    energy_string = "0.5*k*("
+
+    for gh_idx in range(1, num_ghosts+1):
+        energy_string += f'step(d{gh_idx}-dmax)*(d{gh_idx}-dmax)^2'
+        if gh_idx < num_ghosts:
+            energy_string += ' + '
+    energy_string += ');'
+
+    # write definitions of di variables
+    for gh_idx in range(1, num_ghosts+1):
+        energy_string += f' d{gh_idx}=sqrt((x{gh_idx}-cx)^2 + (y{gh_idx}-cy)^2 + (z{gh_idx}-cz)^2);'
+
+    # define cx, cy, cz
+    for a in ['x', 'y', 'z']:
+        energy_string += f' c{a}=('
+        for gh_idx in range(1, num_ghosts+1):
+            energy_string += f'{a}{gh_idx}'
+            if gh_idx < num_ghosts:
+                energy_string += '+'
+        energy_string += f')/{num_ghosts}'
+        if a != 'z':
+            energy_string += ';'
+
+    return energy_string
