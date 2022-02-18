@@ -28,6 +28,8 @@ print(f'hostname: {socket.gethostname()}')
 #Path to openmm correct version and plug-in as used in the mlforce installation
 omm.Platform.loadPluginsFromDirectory(
     '/home/bosesami/anaconda3/pkgs/openmm-7.7.0-py39h9717219_0/lib/plugins')
+
+
 run_num = int(sys.argv[1])
 
 seed_num = np.random.randint(0, high=10000)
@@ -40,7 +42,7 @@ SYSTEM_PDB = osp.join(INPUTS_PATH, 'brd_nvt.pdb')
 SAVE_PATH = './inputs'
 
 # MD simulations settings
-GHOST_MASS = 50
+GHOST_MASS = 50 #Needs to be checked
 TEMPERATURE = 300.0 * unit.kelvin
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.001*unit.picoseconds
