@@ -106,22 +106,23 @@ class CustomVerletIntegrator(omm.CustomIntegrator):
                                       f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
 
 
-class CustomLGIntegrator(omm.CustomIntegrator):
+class CustomHybridIntegrator(omm.CustomIntegrator):
 
     GLOBAL_PARAMETERS = ['lambda', 'charge', 'sigma', 'epsilon']
 
     def __init__(self, n_ghosts, temperature, friction_coeff, timestep,
-                 coeffs=None, bounds=None):
+                 attr_fric_coeffs=None, attr_bounds=None):
 
         super(CustomLGIntegrator, self).__init__(timestep)
 
-        assert coeffs is not None, "Coefficients must be given."
-        assert bounds is not None, "Parameter bounds must be given."
+        assert attr_fric_coeffs is not None, "Coefficients must be given."
+        assert attr_bounds is not None, "Parameter bounds must be given."
 
         for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
                 self.addGlobalVariable(f"f{parameter_name}_g{idx}", 1.0)
 
+        # check on this boltzmann constant (kJ/mol/K)
         self.addGlobalVariable("kT", (0.008314463*temperature))
 
         # Add a part for Langevin integrator for the molecules in the system!
@@ -144,21 +145,10 @@ class CustomLGIntegrator(omm.CustomIntegrator):
         self.addComputePerDof("x1", "x")
         self.addConstrainPositions()
         self.addComputePerDof("v", "v + (x-x1)/dt")
-        #     for parameter_name in self.GLOBAL_PARAMETERS:
-        #         self.addComputeGlobal(f"{parameter_name}_g{idx}",
-        #                               f"{parameter_name}_g{idx} + dt*f{parameter_name}_g{idx}")
-
-        # for idx in range(n_ghosts):
-        #     for parameter_name in self.GLOBAL_PARAMETERS:
-        #         self.addComputeGlobal(f"{parameter_name}_g{idx}",
-        #                               f"{parameter_name}_g{idx} + dt*((1.0/"
-        #                               f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
-        #                               f" + sqrt(2*kT/({coeffs[parameter_name]}))*gaussian)")
 
         for idx in range(n_ghosts):
             for parameter_name in self.GLOBAL_PARAMETERS:
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                      f"max(min({parameter_name}_g{idx} + dt*((1.0/"
-                                      f"({coeffs[parameter_name]})*f{parameter_name}_g{idx})"
-                                      f" + sqrt(0*kT/({coeffs[parameter_name]}))*gaussian),"
-                                      f"{bounds[parameter_name][1]}),{bounds[parameter_name][0]})")
+                                      f"max(min({parameter_name}_g{idx} + dt*(f{parameter_name}_g{idx}/{attr_fric_coeffs[parameter_name]}",
+                                      f" + sqrt(2*kT/{attr_fric_coeffs[parameter_name]})*gaussian),",
+                                      f"{attr_bounds[parameter_name][1]}),{attr_bounds[parameter_name][0]})")
