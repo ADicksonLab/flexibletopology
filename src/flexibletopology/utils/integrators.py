@@ -113,7 +113,7 @@ class CustomHybridIntegrator(omm.CustomIntegrator):
     def __init__(self, n_ghosts, temperature, friction_coeff, timestep,
                  attr_fric_coeffs=None, attr_bounds=None):
 
-        super(CustomLGIntegrator, self).__init__(timestep)
+        super(CustomHybridIntegrator, self).__init__(timestep)
 
         assert attr_fric_coeffs is not None, "Coefficients must be given."
         assert attr_bounds is not None, "Parameter bounds must be given."
