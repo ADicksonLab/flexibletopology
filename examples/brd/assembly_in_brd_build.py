@@ -11,6 +11,8 @@ import openmm as omm
 import simtk.unit as unit
 from sys import stdout
 import time
+from termcolor import colored
+
 
 from flexibletopology.utils.integrators import CustomLGIntegrator
 from flexibletopology.utils.reporters import H5Reporter
@@ -47,15 +49,9 @@ TIMESTEP = 0.001*unit.picoseconds
 NUM_STEPS = 1000
 REPORT_STEPS = 1
 PLATFORM = 'CUDA'
-WIDTH = 0.15 #in nm
-TOL= 100
+WIDTH = 0.30 #in nm
+TOL= 50
 MAXITR = 1000
-
-# MLforce part (TARGET_IDX is the index of the target molecule in the openchem_mols.pkl)
-#if PLATFORM == 'Reference' or PLATFORM == 'OpenCL':
-#    MODEL_NAME = 'ani_model_cpu.pt'
-#else:
-#    MODEL_NAME = 'ani_model_cuda.pt'
 
 MODEL_NAME = 'ani_model_cuda.pt'
 
@@ -63,7 +59,7 @@ TARGET_IDX = 124
 OUTPUTS_PATH = f'CUDA_outputs/T{TARGET_IDX}_mass{GHOST_MASS}/run{run_num}/'
 MODEL_PATH = osp.join(INPUTS_PATH, MODEL_NAME)
 DATA_FILE = f'T{TARGET_IDX}_ani.pkl'
-MLFORCESCALE = 1000
+MLFORCESCALE = 5000
 
 PDB = f'traj{TARGET_IDX}.pdb'
 SIM_TRAJ = f'traj{TARGET_IDX}.dcd'
@@ -141,9 +137,10 @@ if __name__ == '__main__':
     # select residues PRO24, PRO28, GLY34, ASP38, and ASN82 from pdb
     # note: pdb numbering begins at 1, mdtraj begins at 0
     pdb_file = mdj.load_pdb(SYSTEM_PDB)
-    idxs = pdb_file.topology.select("resid 23" "resid 27" "redis 33" "resid 37" "resid 81")
+    idxs = pdb_file.topology.select("resid 23" "resid 27" "resid 33" "resid 37" "resid 81")
+    print(idxs)
     idxs_pos = pdb_file.xyz[0][idxs]
-    WIDTH = 0.15 #nm
+    WIDTH = 0.30 #nm
     COM_BS = np.mean(idxs_pos, axis=0)
     
     # calculating box length
@@ -156,10 +153,11 @@ if __name__ == '__main__':
     params = read_params('toppar.str', INPUTS_PATH)
 
     # Initialization of ghost atom positions
-    min_dist = 2**(1/6)*0.1
+    #min_dist = 2**(1/6)*0.1
+    min_dist =0.15
     init_pos = init_positions(COM_BS, WIDTH, n_ghosts, min_dist)
     print('Initial positions of ghosts in nm')
-    print(init_pos)
+    print(init_pos*10)
 
 #    import ipdb; ipdb.set_trace()
     # Extending the brd system positions to brd+GA system 
@@ -233,7 +231,7 @@ if __name__ == '__main__':
         cnb_force = system.getForce(fidx)
 
         for gh_idx in range(n_ghosts):
-            cnb_force.addParticle([0.00001])
+            cnb_force.addParticle([0.0])
 
         cnb_force.addInteractionGroup(set(range(n_part_system)),
                                       set(range(n_part_system)))
@@ -265,12 +263,14 @@ if __name__ == '__main__':
 
     # 3. custom compound bond force between only the ghost atoms
     trj = mdj.load_pdb(SYSTEM_PDB)
+    #anchor_idxs = idxs
+    #print(anchor_idxs)
     anchor_idxs = []
-    for i in range(15):
-        anchor_idxs.append(trj.top.residue(82).atom(i).index)
+    for i in range(10,12):
+        anchor_idxs.append(trj.top.residue(81).atom(i).index)
     cbf = omm.CustomCentroidBondForce(2, "0.5*k*step(distance(g1,g2) - d0)*(distance(g1,g2) - d0)^2")
-    cbf.addGlobalParameter('k', 500)
-    cbf.addGlobalParameter('d0', 1.0)
+    cbf.addGlobalParameter('k', 1000)
+    cbf.addGlobalParameter('d0', 0.5)
     anchor_grp_idx = cbf.addGroup(anchor_idxs)
     for gh_idx in range(n_ghosts):
         gh_grp_idx = cbf.addGroup([ghost_particle_idxs[gh_idx]])
@@ -280,7 +280,7 @@ if __name__ == '__main__':
 
     # 4. the GS_FORCE (ghost-system non-bonded force)
     gs_force_idxs = []
-    print("Adding ghost-system forces to system..")
+    print(colored("Adding ghost-system forces to system..",'red'))
     for gh_idx in range(n_ghosts):
         energy_function = f'4*lambda_g{gh_idx}*epsilon*(sor12-sor6)+138.9417*lambda_g{gh_idx}*charge1*charge_g{gh_idx}/r;'
         energy_function += 'sor12 = sor6^2; sor6 = (sigma/r)^6;'
@@ -330,27 +330,6 @@ if __name__ == '__main__':
         # adding the force to the system
         gs_force_idxs.append(system.addForce(gs_force))
 
-    # 5. Add the centroid bond force 
-    CCB_force_idxs = []
-    particle2 = []
-    trj = mdj.load_pdb(SYSTEM_PDB)
-    for i in range(15):
-        particle2.append(trj.top.residue(82).atom(i).index)
-
-    for gh_idx in range(n_ghosts):
-        CCB_force = omm.CustomCentroidBondForce(2,"step(distance(g1,g2)-CCB_CUTOFF_DIST)*0.5*k*distance(g1,g2)^2")
-
-        particle1 = [n_part_system + gh_idx]
-
-        CCB_force.addPerBondParameter("k")
-        CCB_force.addPerBondParameter("CCB_CUTOFF_DIST")
-        CCB_force.addGroup(particle1)
-        CCB_force.addGroup(particle2)
-        CCB_force.addBond([0, 1],[5000, 0.8])
-        CCB_force_idxs.append(system.addForce(CCB_force))
-        #CCB_force.setForceGroup(CCB_FORCE_IDX_OFFSET+i)
-
-
     # 6. Harmonic position restraining potential (only for minimization)
     ext_force = omm.CustomExternalForce("k*((x-x0)^2+(y-y0)^2+(z-z0)^2)")
     ext_force.addGlobalParameter("k", 50.0*unit.kilocalories_per_mole/unit.angstroms**2)
@@ -360,7 +339,7 @@ if __name__ == '__main__':
     
     for i in range(trj.top.select('name OXT')[0]):
         ext_force.addParticle(i, crd.positions[i].value_in_unit(unit.nanometers))
-    ext_force.setForceGroup(29)
+    #ext_force.setForceGroup(29)
     system.addForce(ext_force)
 
     # Set up platform
@@ -434,6 +413,7 @@ if __name__ == '__main__':
     np.savetxt(f'BRD_pos_systemFixed.npy',pos_arr)
     par = getParameters(simulation, n_ghosts)
     np.savetxt(f'BRD_par_systemFixed.npy',par)
+    print(np.subtract(par, initial_signals))
 
     #simulation.step(NUM_STEPS)
 
