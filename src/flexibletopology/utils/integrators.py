@@ -108,7 +108,7 @@ class CustomVerletIntegrator(omm.CustomIntegrator):
 
 class CustomHybridIntegrator(omm.CustomIntegrator):
 
-    GLOBAL_PARAMETERS = ['lambda', 'charge', 'sigma', 'epsilon']
+    GLOBAL_PARAMETERS = ['charge', 'sigma', 'epsilon', 'lambda']
 
     def __init__(self, n_ghosts, temperature, friction_coeff, timestep,
                  attr_fric_coeffs=None, attr_bounds=None):
@@ -149,6 +149,7 @@ class CustomHybridIntegrator(omm.CustomIntegrator):
         for idx in range(n_ghosts):
             for parameter_name in self.GLOBAL_PARAMETERS:
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
-                                      f"max(min({parameter_name}_g{idx} + dt*(f{parameter_name}_g{idx}/{attr_fric_coeffs[parameter_name]}",
-                                      f" + sqrt(2*kT/{attr_fric_coeffs[parameter_name]})*gaussian),",
+                                      f"max(min({parameter_name}_g{idx}"
+                                      f"+dt*(f{parameter_name}_g{idx}/{attr_fric_coeffs[parameter_name]}"
+                                      f"+sqrt(2*kT/{attr_fric_coeffs[parameter_name]})*gaussian),"
                                       f"{attr_bounds[parameter_name][1]}),{attr_bounds[parameter_name][0]})")
