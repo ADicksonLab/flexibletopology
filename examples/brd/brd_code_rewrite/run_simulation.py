@@ -55,7 +55,6 @@ SIM_INPUTS_PATH = f'./simulation_inputs/run{run_num}/'
 INPUTS_PATH = './inputs/'
 TARGET_IDX = 124
 MODEL_PATH = osp.join(INPUTS_PATH, 'ani_model_cuda.pt')
-TARGET_PDB = osp.join(INPUTS_PATH, f'target{TARGET_IDX}.pdb')
 TARGET_FILE = osp.join(INPUTS_PATH,f'T{TARGET_IDX}_ani.pkl')
 TOPPAR_STR = ('toppar.str')
 

@@ -55,7 +55,6 @@ TARGET_IDX = 124
 SYSTEM_PSF = osp.join(INPUTS_PATH, 'brd2.psf')
 SYSTEM_PDB = osp.join(INPUTS_PATH, 'brd_nvt.pdb')
 MODEL_PATH = osp.join(INPUTS_PATH, 'ani_model_cuda.pt')
-TARGET_PDB = osp.join(INPUTS_PATH, f'target{TARGET_IDX}.pdb')
 TARGET_FILE = osp.join(INPUTS_PATH,f'T{TARGET_IDX}_ani.pkl')
 TOPPAR_STR = ('toppar.str')
 
