@@ -150,6 +150,6 @@ class CustomHybridIntegrator(omm.CustomIntegrator):
             for parameter_name in self.GLOBAL_PARAMETERS:
                 self.addComputeGlobal(f"{parameter_name}_g{idx}",
                                       f"max(min({parameter_name}_g{idx}"
-                                      f"+dt*(f{parameter_name}_g{idx}/{attr_fric_coeffs[parameter_name]}"
-                                      f"+sqrt(2*kT/(dt*{attr_fric_coeffs[parameter_name]}))*gaussian),"
+                                      f"+dt*f{parameter_name}_g{idx}/{attr_fric_coeffs[parameter_name]}"
+                                      f"+sqrt(2*kT*dt/{attr_fric_coeffs[parameter_name]})*gaussian,"
                                       f"{attr_bounds[parameter_name][1]}),{attr_bounds[parameter_name][0]})")
