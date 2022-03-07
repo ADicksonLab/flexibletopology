@@ -23,7 +23,7 @@ class BRDSystemBuild(object):
     def __init__(self, psf=None, crd=None, pdb=None, target_pkl=None, toppar_str=None, inputs_path=None,
                  ani_model=None, width=None, binding_site_idxs=None, min_dist=None, ep_convert=None,
                  sf_weights=None, gg_group=None, mlforce_group=None, sg_group=None, mlforce_scale=None,
-                 ghost_mass=None):
+                 ghost_mass=None,attr_bounds=None):
 
         self.psf = psf
         self.crd = crd
@@ -41,6 +41,7 @@ class BRDSystemBuild(object):
         self.sg_group = sg_group
         self.mlforce_scale = mlforce_scale
         self.ghost_mass = ghost_mass
+        self.attr_bounds = attr_bounds
         
         assert binding_site_idxs is not None, "Must give binding site indices"
 
@@ -137,8 +138,8 @@ class BRDSystemBuild(object):
             nb_force = system.getForce(fidx)
             for i in range(n_ghosts):
                 nb_force.addParticle(0.0, #charge
-                                     0.2, #sigma (nm)
-                                     0.0) #epsilon (kJ/mol)
+                                     0.05, #sigma (nm)  (make sure they don't get closer than 0.5 A to each other)
+                                     1.0) #epsilon (kJ/mol)
         for fidx in cnb_forces:
             cnb_force = system.getForce(fidx)
 
@@ -146,8 +147,8 @@ class BRDSystemBuild(object):
                 cnb_force.addParticle([0.0])
             cnb_force.addInteractionGroup(set(range(n_part_system)),
                                           set(range(n_part_system)))
-            cnb_force.addInteractionGroup(set(range(n_part_system,n_part_system + n_ghosts)),
-                                          set(range(n_part_system,n_part_system + n_ghosts)))
+            #cnb_force.addInteractionGroup(set(range(n_part_system,n_part_system + n_ghosts)),
+            #                              set(range(n_part_system,n_part_system + n_ghosts)))
 
             num_exclusion = cnb_force.getNumExclusions()
 
@@ -160,11 +161,11 @@ class BRDSystemBuild(object):
     def generate_init_signals(self, n_ghosts):
 
         initial_signals = np.zeros((n_ghosts, 4))
-        initial_signals[:, 0] = np.random.uniform(low=-0.3, high=+0.3, size=(n_ghosts))
-        initial_signals[:, 1] = np.random.uniform(low=0.05, high=0.2, size=(n_ghosts))
-        initial_signals[:, 2] = np.random.uniform(low=0.1, high=1.0, size=(n_ghosts))
-        initial_signals[:, 3] = 1.0
-
+        initial_signals[:, 0] = np.random.uniform(low=self.attr_bounds['charge'][0], high=self.attr_bounds['charge'][1], size=(n_ghosts))
+        initial_signals[:, 1] = np.random.uniform(low=self.attr_bounds['sigma'][0], high=self.attr_bounds['sigma'][1], size=(n_ghosts))
+        initial_signals[:, 2] = np.random.uniform(low=self.attr_bounds['epsilon'][0], high=self.attr_bounds['epsilon'][1], size=(n_ghosts))
+        initial_signals[:, 3] = np.random.uniform(low=self.attr_bounds['lambda'][0], high=self.attr_bounds['lambda'][1], size=(n_ghosts))
+        
         return initial_signals
 
     def add_mlforce(self, system, n_ghosts, n_part_system, target_features):
@@ -209,9 +210,9 @@ class BRDSystemBuild(object):
                      exclusion_list):
 
         for gh_idx in range(n_ghosts):
-            energy_function = f'4*lambda_g{gh_idx}*epsilon*(sor12-sor6)+138.9417*lambda_g{gh_idx}*charge1*charge_g{gh_idx}/r;'
+            energy_function = f'lambda_g{gh_idx}*epsilon*(sor12-sor6)+138.935456*lambda_g{gh_idx}*charge1*charge2*charge_g{gh_idx}/r;'
             energy_function += 'sor12 = sor6^2; sor6 = (sigma/r)^6;'
-            energy_function += f'sigma = 0.5*(sigma1+sigma_g{gh_idx}); epsilon = sqrt(epsilon1*epsilon_g{gh_idx})'
+            energy_function += f'sigma = 0.5*(sigma1+sigma2+sigma_g{gh_idx}); epsilon = sqrt(epsilon1*epsilon2*epsilon_g{gh_idx})'
             gs_force = omm.CustomNonbondedForce(energy_function)
 
             gs_force.addPerParticleParameter('charge')
@@ -240,7 +241,7 @@ class BRDSystemBuild(object):
             # though we only use one of them!
             for p_idx in range(n_ghosts):
                 gs_force.addParticle(
-                    [initial_signals[p_idx, 1], initial_signals[p_idx, 2], initial_signals[p_idx, 3]])
+                    [1.0, 0.0, 1.0]) # add ghosts using neutral parameters that won't affect the force at all
 
             # interaction between ghost and system    
             gs_force.addInteractionGroup(set(range(n_part_system)),
@@ -309,3 +310,6 @@ class BRDSystemBuild(object):
                                    sys_sigma, sys_epsilon, sys_charge, exclusion_list)
 
         return system, initial_signals, n_ghosts, self.psf.topology, self.crd.positions, target_features
+
+
+        
