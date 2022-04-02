@@ -154,6 +154,7 @@ class CustomHybridIntegrator(omm.CustomIntegrator):
                                       f"+sqrt(2*kT*dt/{attr_fric_coeffs[parameter_name]})*gaussian,"
                                       f"{attr_bounds[parameter_name][1]}),{attr_bounds[parameter_name][0]})")
 
+
 class CustomHybridIntegratorConstCharge(omm.CustomIntegrator):
 
     GLOBAL_PARAMETERS = ['charge', 'sigma', 'epsilon', 'lambda']
@@ -172,7 +173,7 @@ class CustomHybridIntegratorConstCharge(omm.CustomIntegrator):
 
         # define a global variable for the total charge
         self.addGlobalVariable("tot_charge", 0.0)
-        
+
         # check on this boltzmann constant (kJ/mol/K)
         self.addGlobalVariable("kT", (0.008314463*temperature))
 
@@ -208,9 +209,9 @@ class CustomHybridIntegratorConstCharge(omm.CustomIntegrator):
         compute_tc_string = ""
         for idx in range(n_ghosts):
             compute_tc_string += f"charge_g{idx}"
-            if idx != n_ghosts -1:
+            if idx != n_ghosts - 1:
                 compute_tc_string += " + "
-        self.addComputeGlobal("tot_charge",compute_tc_string)
+        self.addComputeGlobal("tot_charge", compute_tc_string)
 
         for idx in range(n_ghosts):
             self.addComputeGlobal(f"charge_g{idx}",

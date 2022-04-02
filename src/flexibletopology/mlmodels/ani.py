@@ -10,6 +10,7 @@ from torch.jit import Final
 import torchani
 from typing import List
 from .gsg import GSG
+from .aev import AEVComputer
 
 
 class Ani(nn.Module):
@@ -29,19 +30,52 @@ class Ani(nn.Module):
                     cuda_consts.update({key: value.to(self.device)})
                 else:
                     cuda_consts.update({key: value})
-            self.aev_computer = torchani.AEVComputer(**cuda_consts)
+            self.aev_computer = AEVComputer(**cuda_consts)
         else:
-            self.aev_computer = torchani.AEVComputer(**consts)
+            self.aev_computer = AEVComputer(**consts)
 
-    def forward(self, coordinates: Tensor) -> Tensor:
+    def forward(self, coordinates: Tensor, charges: Tensor) -> Tensor:
 
         species = torch.zeros((1, coordinates.shape[0]),
                               dtype=torch.int64,
                               device=coordinates.device)
         _, aev_signals = self.aev_computer((species,
-                                            coordinates.unsqueeze(0)))
+                                            coordinates.unsqueeze(0),
+                                            charges))
 
         return aev_signals.squeeze()
+
+
+# class Ani(nn.Module):
+
+#     def __init__(self, platform: str = '', consts_file: str = ''):
+
+#         super().__init__()
+#         self.is_trainable = False
+#         self.consts_file = consts_file
+#         self.device = torch.device(platform)
+
+#         consts = torchani.neurochem.Constants(self.consts_file)
+#         cuda_consts = {}
+#         if platform == 'cuda':
+#             for key, value in consts.items():
+#                 if torch.is_tensor(value):
+#                     cuda_consts.update({key: value.to(self.device)})
+#                 else:
+#                     cuda_consts.update({key: value})
+#             self.aev_computer = torchani.AEVComputer(**cuda_consts)
+#         else:
+#             self.aev_computer = torchani.AEVComputer(**consts)
+
+#     def forward(self, coordinates: Tensor) -> Tensor:
+
+#         species = torch.zeros((1, coordinates.shape[0]),
+#                               dtype=torch.int64,
+#                               device=coordinates.device)
+#         _, aev_signals = self.aev_computer((species,
+#                                             coordinates.unsqueeze(0)))
+
+#         return aev_signals.squeeze()
 
 
 class AniGSG(nn.Module):
