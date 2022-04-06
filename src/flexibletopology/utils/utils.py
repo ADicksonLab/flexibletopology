@@ -44,7 +44,7 @@ def save_anigsg_model(max_wavelet_scale=4,
                       sd_params=None):
 
     base_dir = os.path.dirname(os.path.realpath(__file__))
-    ani_params_file = '../resources/ani_params/ani-1ccx_8x_nm.params'
+    ani_params_file = '../resources/ani_params/ani-1ccx_8x_nm_refined.params'
 
     consts_file = os.path.join(base_dir, ani_params_file)
 

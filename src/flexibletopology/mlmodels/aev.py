@@ -37,7 +37,7 @@ def cutoff_cosine(distances: Tensor, cutoff: float) -> Tensor:
 
 def cutoff_charge_cosine(distances: Tensor, charges: Tensor, cutoff: float) -> Tensor:
     # assuming all elements in distances are smaller than cutoff
-    return 0.5 * torch.cos(distances * charges * (math.pi / cutoff)) + 0.5
+    return 0.5 * charges * torch.cos(distances * (math.pi / cutoff)) + 0.5
 
 
 def radial_terms(Rcr: float, EtaR: Tensor, ShfR: Tensor, distances: Tensor) -> Tensor:
