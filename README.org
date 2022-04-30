@@ -1,10 +1,10 @@
 * Flexible Topology
-The goal of this project is to develop a tool to dynamically design
-potential drug molecules. This tool incorporates external forces from
-a trained machine learning (ML) model on a set of “ghost” particles.
+This project aims to develop a tool to dynamically design potential
+drug molecules. This tool incorporates external forces from a trained
+machine learning (ML) model on a set of “ghost” particles.
 
-The ~Flexible Topology~ uses [[https://pytorch.org][PyTorch]] to build a ML model which can be
-a trainable or non-trainableis model. It will then predict the
+The ~Flexible Topology~ method uses [[https://pytorch.org][PyTorch]] to build a ML model,which
+which can be trainable or non-trainable. It will then predict the
 structure and pose of a set of given ~ghost atoms~ to be a potential
 ligand candidate for a protein. The output of the model is a function
 whose gradient, with respect to positions, produces external
@@ -13,7 +13,7 @@ positions of ghost atoms and optimize them toward target drug-like
 molecules.
 
 We run molecular dynamics simulations using [[https://github.com/pandegroup/openmm][Openmm]] where the OpenMM
-Plugin [[https://github.com/ADicksonLab/mlforce.git][MLForce]] employed to apply the ML-based forces.
+Plugin [[https://github.com/ADicksonLab/mlforce.git][MLForce]] is employed to apply the ML-based forces.
 
 * Usage
 
