@@ -14,10 +14,35 @@ from .aev import AEVComputer
 
 
 class Ani(nn.Module):
+    """Create a TorchANI model used in Flexible Topology simulations.
+
+    You can find more detailed information in the paper "'ANI-1: an
+    extensible neural network potential with DFT accuracy at force
+    field computational cost".  It takes the path to the configure
+    file, including the TorchANI model parameters and platform type
+    as inputs and then generates atomic species of the same type.
+    These inputs create a TorchANI model that calculates the radial
+    and angular AEVs.
+
+    """
 
     def __init__(self, platform: str = '', consts_file: str = ''):
+        """Constructor for the ANI model.  Read the parameters onfiguration
+        file and create and instance of "AEVComputer".
 
+        Args:
+
+        platform (str, optional): The platform is used to create
+        the TorchANI model. The accepted values are cpu, cuda or
+        opencl. Defaults to ''.
+
+        consts_file (str, optional): The path to the
+        file including ANI parameters. You can find example files in
+        `resources/ani_params`. Defaults to ''.
+
+        """
         super().__init__()
+
         self.is_trainable = False
         self.consts_file = consts_file
         self.device = torch.device(platform)
@@ -35,6 +60,25 @@ class Ani(nn.Module):
             self.aev_computer = AEVComputer(**consts)
 
     def forward(self, coordinates: Tensor, charges: Tensor) -> Tensor:
+        """Calls the ANI model to calculate AEVs.
+
+        The coordinates must be in ``(N, 3)`` shape and charges are in
+        the shape of ``(N)`` where "N" is the number of inputs.
+
+        Args:
+            coordinates (Tensor): The coordinates of the molecule in 3D
+            charges (Tensor): The partial charge on atoms
+
+        Returns:
+            Tensor: The radial and angular AEVs with the shape
+            ``(N, M)`` where ``(N)`` is the number of atoms and ``M``
+            depends on the TorcANI model parameters.
+
+        """
+        assert len(coordinates.shape) == 2, "coordinates should be rank 2 array"
+        assert coordinates.shape[1] == 3, "coordinates are not of 3 dimensions"
+        assert len(charges) == 1, "charges are not of 1 dimensions"
+        assert coordinates.shape[0] == charges.shape[0], "coordinates and charges must have the same number of atoms"
 
         species = torch.zeros((1, coordinates.shape[0]),
                               dtype=torch.int64,
@@ -44,38 +88,6 @@ class Ani(nn.Module):
                                             charges))
 
         return aev_signals.squeeze()
-
-
-# class Ani(nn.Module):
-
-#     def __init__(self, platform: str = '', consts_file: str = ''):
-
-#         super().__init__()
-#         self.is_trainable = False
-#         self.consts_file = consts_file
-#         self.device = torch.device(platform)
-
-#         consts = torchani.neurochem.Constants(self.consts_file)
-#         cuda_consts = {}
-#         if platform == 'cuda':
-#             for key, value in consts.items():
-#                 if torch.is_tensor(value):
-#                     cuda_consts.update({key: value.to(self.device)})
-#                 else:
-#                     cuda_consts.update({key: value})
-#             self.aev_computer = torchani.AEVComputer(**cuda_consts)
-#         else:
-#             self.aev_computer = torchani.AEVComputer(**consts)
-
-#     def forward(self, coordinates: Tensor) -> Tensor:
-
-#         species = torch.zeros((1, coordinates.shape[0]),
-#                               dtype=torch.int64,
-#                               device=coordinates.device)
-#         _, aev_signals = self.aev_computer((species,
-#                                             coordinates.unsqueeze(0)))
-
-#         return aev_signals.squeeze()
 
 
 class AniGSG(nn.Module):

@@ -1,26 +1,25 @@
 * Flexible Topology
 The goal of this project is to develop a tool to dynamically design
 potential drug molecules. This tool incorporates external forces from
-a trained machine learning (ML) on a set of “ghost” particles.
+a trained machine learning (ML) model on a set of “ghost” particles.
 
-The ~pharmostat~ uses [[https://pytorch.org][PyTorch]] to build a ML model which is trained
-on a data set of drug molecules. It will then predict the structure
-and pose of a set of given ghost particles to be a potential ligand
-candidate for a protein. The output of the model is a function whose
-gradient, with respect to positions, produces external forces.
-
-These force will constantly modify host particles and optimize them
-toward different drug-like molecules During the MD simulation, a
-technique that we call "flexible topology".
+The ~Flexible Topology~ uses [[https://pytorch.org][PyTorch]] to build a ML model which can be
+a trainable or non-trainableis model. It will then predict the
+structure and pose of a set of given ~ghost atoms~ to be a potential
+ligand candidate for a protein. The output of the model is a function
+whose gradient, with respect to positions, produces external
+forces. These force will constally change the chemical type and
+positions of ghost atoms and optimize them toward target drug-like
+molecules.
 
 We run molecular dynamics simulations using [[https://github.com/pandegroup/openmm][Openmm]] where the OpenMM
-Plugin [[https://gitlab.com/ADicksonLab/nnforce.git][nnforce]] is employed to apply the ML-based forces.
+Plugin [[https://github.com/ADicksonLab/mlforce.git][MLForce]] employed to apply the ML-based forces.
 
 * Usage
 
 
 * Installation
 To install this package do the folloeing commands
-- git clone git@gitlab.com:ADicksonLab/flexibletopology.git
+- git clone https://github.com/ADicksonLab/flexibletopology.git
 - cd flexibletopology
 - pip install -e .
