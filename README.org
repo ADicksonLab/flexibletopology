@@ -1,22 +1,18 @@
 * Flexible Topology
 This project aims to develop a tool to dynamically design potential
-drug molecules. This tool incorporates external forces from a trained
-machine learning (ML) model on a set of “ghost” particles.
-
-The ~Flexible Topology~ method uses [[https://pytorch.org][PyTorch]] to build a ML model,which
-which can be trainable or non-trainable. It will then predict the
-structure and pose of a set of given ~ghost atoms~ to be a potential
-ligand candidate for a protein. The output of the model is a function
-whose gradient, with respect to positions, produces external
+drug molecules. The ~Flexible Topology~ method uses [[https://pytorch.org][PyTorch]] to build a
+ML model, which can be trainable or non-trainable. It will then
+predict the structure and pose of a set of given ~ghost atoms~ to be a
+potential ligand candidate for a protein. The output of the model is a
+function whose gradient, with respect to positions, produces external
 forces. These force will constally change the chemical type and
 positions of ghost atoms and optimize them toward target drug-like
 molecules.
 
 We run molecular dynamics simulations using [[https://github.com/pandegroup/openmm][Openmm]] where the OpenMM
 Plugin [[https://github.com/ADicksonLab/mlforce.git][MLForce]] is employed to apply the ML-based forces.
-
-* Usage
-
+For more details read the [[https://chemrxiv.org/engage/chemrxiv/article-details/626be58411b14616eb34a3f4][FLEXIBLE TOPOLOGY: A NEW METHOD FOR
+DYNAMIC DRUG DESIGN]] paper on Chemrxiv.
 
 * Installation
 To install this package do the folloeing commands
