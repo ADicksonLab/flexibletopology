@@ -1,6 +1,6 @@
 import os.path as osp
 import numpy as np
-from simtk import unit
+from openmm import unit
 import openmm.app as omma
 
 
