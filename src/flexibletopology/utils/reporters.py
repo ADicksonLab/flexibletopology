@@ -2,7 +2,7 @@ import os
 import numpy as np
 import h5py
 import pickle as pkl
-import simtk.unit as unit
+import openmm.unit as unit
 from collections import defaultdict
 import openmm.openmm as omm
 

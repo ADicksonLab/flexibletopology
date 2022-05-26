@@ -1,7 +1,7 @@
 import numpy as np
 import openmm.app as omma
 import openmm.openmm as omm
-from simtk import unit
+from openmm import unit
 import math
 
 
