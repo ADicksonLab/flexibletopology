@@ -23,9 +23,9 @@ class GravPotential(nn.Module):
     def forward(self, positions, signals):
 
         # center of geometry
-        cog = torch.mean(positions,axis=0)
+        cog = torch.mean(positions, axis=0)
 
-        cog_dists_sq = torch.sum(torch.square(positions - cog),axis=1)
+        cog_dists_sq = torch.sum(torch.square(positions - cog), axis=1)
         cog_dists = torch.sqrt(cog_dists_sq)
 
         en = torch.where(cog_dists > self.r0,
