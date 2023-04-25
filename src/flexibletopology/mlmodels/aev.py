@@ -53,6 +53,7 @@ def cutoff_cosine(distances: Tensor, cutoff: float) -> Tensor:
     # assuming all elements in distances are smaller than cutoff
     return 0.5 * torch.cos(distances * (math.pi / cutoff)) + 0.5
 
+
 def cutoff_charge_cosine(distances: Tensor, charges: Tensor, cutoff: float) -> Tensor:
     """Define a cutoff funtion to describe the charge AEVs.
 
@@ -317,7 +318,7 @@ def triple_by_molecule(atom_index12: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         sorted_ai1, return_inverse=False, return_counts=True)
 
     # compute central_atom_index
-    #pair_sizes = counts * (counts - 1) // 2
+    # pair_sizes = counts * (counts - 1) // 2
     pair_sizes = torch.div(counts * (counts - 1), 2, rounding_mode="trunc")
     pair_indices = torch.repeat_interleave(pair_sizes)
     central_atom_index = uniqued_central_atom_index.index_select(

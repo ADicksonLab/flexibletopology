@@ -152,7 +152,7 @@ class H5Reporter(object):
 
         if self._potentialEnerg:
             potentialEnergy = ml_state.getPotentialEnergy(
-            ).value_in_unit(unit.kilocalories_per_mole)
+            ).value_in_unit(unit.kilojoules_per_mole)
             self._extend_traj_field(
                 'potentialEnergy', np.array(potentialEnergy))
 
