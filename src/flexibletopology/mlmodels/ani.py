@@ -26,7 +26,7 @@ class Ani(nn.Module):
 
     """
 
-    def __init__(self, platform: str = '', consts_file: str = ''):
+    def __init__(self, platform = '', consts_file = '', feature_wts = None):
         """Constructor for the ANI model.  Read the parameters onfiguration
         file and create and instance of "AEVComputer".
 
@@ -40,13 +40,18 @@ class Ani(nn.Module):
         file including ANI parameters. You can find example files in
         `resources/ani_params`. Defaults to ''.
 
+        feature_wts (array-like, optional): A multiplicative weight for
+        each feature to be used in the energy function.  If None, will be 
+        set uniformly to one.
+
         """
         super().__init__()
 
         self.is_trainable = False
         self.consts_file = consts_file
         self.device = torch.device(platform)
-
+        self.feature_wts = feature_wts
+        
         consts = torchani.neurochem.Constants(self.consts_file)
         cuda_consts = {}
         if platform == 'cuda':
