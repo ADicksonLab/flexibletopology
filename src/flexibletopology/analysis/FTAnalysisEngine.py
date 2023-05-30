@@ -10,9 +10,12 @@ from geomm.rmsd import calc_rmsd
 from geomm.box_vectors import box_vectors_to_lengths_angles
 from sklearn.cluster import KMeans
 from scipy.spatial import distance
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_samples, silhouette_score
+from matplotlib.ticker import FixedLocator, FixedFormatter
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import warnings
+import sys
 warnings.filterwarnings("ignore")
 
 
@@ -77,7 +80,7 @@ def compute_assembly_rmsd(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_i
 
         centered_mapped_ref_pos = center_around(coords = mapped_ref_pos,
                                                 idxs = lig_idxs)
-    
+        
         sup_walker_pos,rotation_matrix,qcp_rmsd = superimpose(ref_coords = centered_mapped_ref_pos,
                                                             coords = centered_walker_pos,
                                                             idxs = lig_idxs)
@@ -237,12 +240,11 @@ def compute_aligned_pos(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idx
 
     return np.array(all_pos)
 
-
 class FTAnalysisEngine(object):
 
     def __init__(self, base_dir,  filename , mode , ref_pdb  , ref_bb_idxs, ref_lig_idxs , align_bb_idxs , align_lig_idxs ,  align_all_idxs ,**kwargs):
         self.base_dir = base_dir
-        self._h5 = WepyHDF5(filename=filename,mode=mode)        
+        self._h5 = WepyHDF5(filename=filename,mode=mode)  
         self.ref_pdb = ref_pdb
         self.ref_bb_idxs = ref_bb_idxs
         self.ref_lig_idxs = ref_lig_idxs
@@ -253,8 +255,10 @@ class FTAnalysisEngine(object):
         with self._h5:
             self.cycles = self._h5.num_run_cycles(0)
             self.walkers = self._h5.num_trajs
+            
         
-    
+        
+
     """Calculate the assembly and pose RMSD between the reference and query coordinates
 
     Parameters
@@ -280,9 +284,6 @@ class FTAnalysisEngine(object):
 
     align_lig_idxs : arraylike of int
         The ligand idxs of the system that will be rotated to match the ref_coords.
-    
-    align_all_idxs : arraylike of int
-        The backbone and ligans idxs of the full system of original align pdb.
 
     """
 
@@ -341,7 +342,7 @@ class FTAnalysisEngine(object):
     
 
     def aligned_pos(self , pdbfile , field_tag ): 
-        """Compute aligned pos and save to the self._h5 file.
+        """Compute ligand pos and save to the self._h5 file.
 
         Parameters
         ----------
@@ -398,8 +399,8 @@ class FTAnalysisEngine(object):
             valid_aligned_pos = self.aligned_pos_array[valid_frames]
 
             num_frames = np.shape(valid_aligned_pos)[0]
-            num_atoms = np.shape(valid_aligned_pos)[1]
-            valid_aligned_pos_reshaped = valid_aligned_pos.reshape(num_frames, num_atoms * 3)
+            self.num_atoms = np.shape(valid_aligned_pos)[1]
+            valid_aligned_pos_reshaped = valid_aligned_pos.reshape(num_frames, self.num_atoms * 3)
             
             
             # find the optimal number of clusters
@@ -439,6 +440,10 @@ class FTAnalysisEngine(object):
                 plt.xticks(num_clusters)
                 save_fig( "silhouette_score_vs_k_plot" , plot_path )
                 return optimal_num_clusters_summary
+        
+
+        
+
         
     def clustering( self, assembly_rmsd_cutoff ,  num_clusters = None ):
 
@@ -490,6 +495,8 @@ class FTAnalysisEngine(object):
             self.frame_idxs = np.where(labels == most_pop_cluster_index)[0]
 
             return self.most_pop_cluster_center , self.frame_idxs
+    
+    
     
     def find_centroid(self, print_results = True ): 
         """Calculate the centroid ghost particles positions among the valid farmes with assembly RMSD below the cutoff.
@@ -567,10 +574,17 @@ class FTAnalysisEngine(object):
 
             # calculate the minimum pose rmsd over the whole trajectories and its it's walker and cycle index
             min_pose_rmsd = np.min(self.pose_rmsd_array)
-            w, c = np.where(self.pose_rmsd_array == min_pose_rmsd)
-            min_pose_rmsd_w_index = w[0]
-            min_pose_rmsd_c_index = c[0]
+            w_min_pose, c_min_pose = np.where(self.pose_rmsd_array == min_pose_rmsd)
+            min_pose_rmsd_w_index = w_min_pose[0]
+            min_pose_rmsd_c_index = c_min_pose[0]
             assembly_rmsd_of_min_pose_rmsd = self.assembly_rmsd_array[min_pose_rmsd_w_index , min_pose_rmsd_c_index]
+
+            min_assembly_rmsd = np.min(self.assembly_rmsd_array)
+            w_min_assembly, c_min_assembly = np.where(self.assembly_rmsd_array == min_assembly_rmsd)
+            min_assembly_rmsd_w_index = w_min_assembly[0]
+            min_assembly_rmsd_c_index =  c_min_assembly[0]
+            pose_rmsd_of_min_assembly_rmsd = self.pose_rmsd_array[min_assembly_rmsd_w_index , min_assembly_rmsd_c_index]
+
 
 
             # obtain valid frames lig pos and idxs based on the assembly RMSD
@@ -609,7 +623,11 @@ class FTAnalysisEngine(object):
                                     'min_pos_rmsd' : min_pose_rmsd,
                                     'min_pose_rmsd_w_index' : min_pose_rmsd_w_index,
                                     'min_pose_rmsd_c_index' : min_pose_rmsd_c_index,
-                                    'assembly_rmsd_of_min_pose_rmsd' : assembly_rmsd_of_min_pose_rmsd
+                                    'assembly_rmsd_of_min_pose_rmsd' : assembly_rmsd_of_min_pose_rmsd,
+                                    'min_assembly_rmsd' : min_assembly_rmsd,
+                                    'min_assembly_rmsd_w_index' : min_assembly_rmsd_w_index,
+                                    'min_assembly_rmsd_c_index' : min_assembly_rmsd_c_index,
+                                    'pose_rmsd_of_min_assembly_rmsd' : pose_rmsd_of_min_assembly_rmsd
                                     }
 
 
@@ -619,45 +637,86 @@ class FTAnalysisEngine(object):
 
             return rmsd_analysis_summary
 
-    def plot_rmsd (self):
+    def calculate_loss_per_particle (self , mlforce_scale):
+        """Calculate loss per number of particles.
+
+        Parameters
+        ----------
+
+        mlforce_scale : string
+            path to the mlforce_scale force list (.txt) file.
+            
+        """
+
+        self.has_been_called["calculate_loss"] = True
+
+        with self._h5:
+
+            assignments = np.array(self._h5.get_traj_field(0,0,'assignments'))
+            force_potential_energies = []
+            for walker in range(self.walkers):
+                force_potential_energy = np.array(self._h5.get_traj_field(0,walker,'force_potential_energy'))
+                force_potential_energies.append(force_potential_energy)
+
+        force_potential_energies = np.array(force_potential_energies).reshape(self.walkers, self.cycles)
+        mlforce_scale = np.loadtxt(mlforce_scale)
+        num_particles = assignments.shape[1]
+        self.loss = force_potential_energies / (mlforce_scale * num_particles)
+
+        return self.loss
+        
+    
+    def plot (self):
         """Plot assembly and pose RMSD graphs"""
 
+        if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' , 'calculate_loss')) :
 
-        if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' )) :
-
-            print("Please call assembly_rmsd(), pose_rmsd() methods before calling plot_rmsd()")
+            print("Please call assembly_rmsd(), pose_rmsd(), and calculate_loss_poer_particle methods before calling plot()")
             return None    
 
         else:
 
-            plot_path = osp.join(self.base_dir,'rmsd_plots')
+            plot_path = osp.join(self.base_dir,'plots')
             os.makedirs(plot_path, exist_ok=True)
 
             cycles_array= range(0,self.cycles,1)
-
             ave_pose_rmsd = np.mean(self.pose_rmsd_array,axis=0)
             ave_assembly_rmsd = np.mean(self.assembly_rmsd_array,axis=0)
+            ave_loss = np.mean(self.loss,axis=0)
 
-            fig1 = plt.figure(figsize = (8,5))
-            plt.plot(cycles_array,ave_pose_rmsd,color='r',ls='-',lw=3,label=f'Ave_Pose_RMSD')
-            plt.plot(cycles_array,ave_assembly_rmsd,color='b',ls='-',lw=3,label=f'Ave_Assembly_RMSD')
-            plt.title(f'Average RMSD', fontsize=12,fontweight='bold',color='k')
-            plt.xlabel("cycle",fontsize=12,fontweight='bold',color='k')
-            plt.ylabel("ave_rmsd(nm)",fontsize=12,fontweight='bold',color='k')
-            plt.legend()
-            save_fig(f'average_rmsd.png' , plot_path )
-        
-            
+            assemblyRMSD_fig = plt.figure(figsize = (5,5))
             for walker in range (self.walkers):
-                fig1 = plt.figure(figsize = (8,5))
-                pose_rmsd_walker = self.pose_rmsd_array[walker]
-                assembly_rmsd_walker = self.assembly_rmsd_array[walker]
-                plt.plot(cycles_array,pose_rmsd_walker,color='r',ls='-',lw=3,label=f'Pose RMSD')
-                plt.plot(cycles_array,assembly_rmsd_walker,color='b',ls='-',lw=3,label=f'Assembly RMSD')
-                plt.title(f'rmsd_walker{walker}', fontsize=12,fontweight='bold',color='k')
-                plt.xlabel("cycle",fontsize=12,fontweight='bold',color='k')
-                plt.ylabel("rmsd(nm)",fontsize=12,fontweight='bold',color='k')
-                plt.legend()
+                plt.plot(cycles_array,self.assembly_rmsd_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            plt.plot(cycles_array,ave_assembly_rmsd,color='black',ls='-',lw=3 , label = 'Assembly RMSD')
+            
+            plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Assembly RMSD (nm)",fontsize=12,fontweight='bold',color='k')
+            plt.xticks(np.arange(0,100.1 , step = 20))
+            plt.yticks(np.arange(0,0.51 , step = 0.1))
+            plt.legend()
+            save_fig(f'assembly_rmsd.png' , plot_path )
+            plt.show
 
-                save_fig(f'rmsd_walker{walker}.png', plot_path )
-                
+            poseRMSD_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(cycles_array,self.pose_rmsd_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            plt.plot(cycles_array,ave_pose_rmsd,color='black',ls='-',lw=3 , label = 'Pose RMSD')
+
+            plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Pose RMSD (nm)",fontsize=12,fontweight='bold',color='k')
+            plt.xticks(np.arange(0,100.1 , step = 20))
+            plt.yticks(np.arange(0,0.71 , step = 0.1))
+            plt.legend()
+            save_fig(f'Pose_rmsd.png' , plot_path )
+            
+            loss_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(cycles_array,self.loss[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            plt.plot(cycles_array,ave_loss,color='black',ls='-',lw=3 , label = 'Loss per Particle')
+
+            plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
+            plt.legend()
+            save_fig(f'loss.png' , plot_path )
+            
+
