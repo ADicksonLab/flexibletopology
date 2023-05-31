@@ -667,7 +667,7 @@ class FTAnalysisEngine(object):
         
     
     def plot (self):
-        """Plot assembly and pose RMSD graphs.
+        """Plot assembly and pose RMSD, and loss per particle graphs.
         You may want to change the xticks and yticks based on your plot.
         """
 
