@@ -667,7 +667,9 @@ class FTAnalysisEngine(object):
         
     
     def plot (self):
-        """Plot assembly and pose RMSD graphs"""
+        """Plot assembly and pose RMSD graphs.
+        You may want to change the xticks and yticks based on your plot.
+        """
 
         if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' , 'calculate_loss')) :
 
@@ -694,7 +696,7 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.51 , step = 0.1))
             plt.legend()
-            save_fig(f'assembly_rmsd.png' , plot_path )
+            save_fig(f'assembly_rmsd.png', plot_path )
             plt.show
 
             poseRMSD_fig = plt.figure(figsize = (5,5))
@@ -707,7 +709,7 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.71 , step = 0.1))
             plt.legend()
-            save_fig(f'Pose_rmsd.png' , plot_path )
+            save_fig(f'Pose_rmsd.png', plot_path )
             
             loss_fig = plt.figure(figsize = (5,5))
             for walker in range (self.walkers):
@@ -717,6 +719,15 @@ class FTAnalysisEngine(object):
             plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.legend()
-            save_fig(f'loss.png' , plot_path )
+            save_fig(f'loss.png', plot_path )
+
+            loss_RMSD_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(self.assembly_rmsd_array[walker], self.loss[walker], 'o' , color='gray', alpha = 0.3)
+            
+            plt.xlabel("RMSD",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
+            plt.yscale('log')
+            save_fig(f'loss_RMSD.png', plot_path )
             
 
