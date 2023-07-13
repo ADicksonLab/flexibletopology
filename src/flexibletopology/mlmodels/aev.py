@@ -1,20 +1,22 @@
-import torch
+"""  Class for generating Atomic Environmnet Vectors (AEVs).
+These are  a set of symmetry functions that can uniquely describe the local environment of an atom.
+They are introducde by Behler-Parrinello 
+in the pape "Generalized Neural-Network Representation of High-Dimensional Potential-Energy Surfaces" and their modified 
+version of these symmetry functions has been descrided in the ANI paper titled 'ANI-1: an extensible neural network potential with DFT 
+accuracy at force field computational cost' and implemented in TorchANI package.
+The original code can be found here 
+https://github.com/ADicksonLab/wepy/blob/master/src/wepy/resampling/decisions/decision.py.
+Here, we added an additional set of radial functions to describe the charge atomic environment.
+"""
 
+import torch
 from torch import Tensor
+
 import math
 from typing import Tuple, Optional, NamedTuple
 import sys
 import warnings
-#import importlib_metadata
 has_cuaev = False
-# has_cuaev = 'torchani.cuaev' in importlib_metadata.metadata(
-#     __package__).get_all('Provides')
-
-# if has_cuaev:
-#     # We need to import torchani.cuaev to tell PyTorch to initialize torch.ops.cuaev
-#     from . import cuaev  # type: ignore # noqa: F401
-# else:
-#     warnings.warn("cuaev not installed")
 
 if sys.version_info[:2] < (3, 7):
     class FakeFinal:
@@ -31,11 +33,38 @@ class SpeciesAEV(NamedTuple):
 
 
 def cutoff_cosine(distances: Tensor, cutoff: float) -> Tensor:
+    r""" Define a cutoff funtion
+    The equation described in the Behler-Parrinello paper. 
+
+    :math::
+    f_c(R_{ij}) =
+    \begin{cases}
+    0.5(\cos{(\frac{\pi R_{ij}}{R_c})}+1) &  \text{for} \ R_{ij} \leq R_c \\
+    0.0 &  \text{for} \ R_{ij} > R_c
+    \end{cases}
+
+    Args:
+        distances (Tensor): The distances between pair atoms
+        cutoff (float): distance cuoff value
+
+    Returns:
+        Tensor: _description_
+    """
     # assuming all elements in distances are smaller than cutoff
     return 0.5 * torch.cos(distances * (math.pi / cutoff)) + 0.5
 
 
 def cutoff_charge_cosine(distances: Tensor, charges: Tensor, cutoff: float) -> Tensor:
+    """Define a cutoff funtion to describe the charge AEVs.
+
+    Args:
+        distances (Tensor): The distances between pair atoms
+        charges (Tensor): The charges of the pair atoms (second pair)
+        cutoff (float): distance cuoff value
+
+    Returns:
+        Tensor: _description_
+    """
     # assuming all elements in distances are smaller than cutoff
     return 0.5 * charges * torch.cos(distances * (math.pi / cutoff)) + 0.5
 
@@ -67,7 +96,7 @@ def radial_terms(Rcr: float, EtaR: Tensor, ShfR: Tensor, distances: Tensor) -> T
 
 
 def charge_terms(Rcr: float, EtaR: Tensor, ShfR: Tensor, distances: Tensor, charges: Tensor) -> Tensor:
-    """Compute the radial subAEV terms of the center atom given neighbors
+    """Compute the charge radial subAEV terms of the center atom given neighbors 
 
     This correspond to equation (3) in the `ANI paper`_. This function just
     compute the terms. The sum in the equation is not computed.
@@ -289,7 +318,7 @@ def triple_by_molecule(atom_index12: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         sorted_ai1, return_inverse=False, return_counts=True)
 
     # compute central_atom_index
-    #pair_sizes = counts * (counts - 1) // 2
+    # pair_sizes = counts * (counts - 1) // 2
     pair_sizes = torch.div(counts * (counts - 1), 2, rounding_mode="trunc")
     pair_indices = torch.repeat_interleave(pair_sizes)
     central_atom_index = uniqued_central_atom_index.index_select(
