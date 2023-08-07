@@ -1,3 +1,4 @@
+
 import os
 import os.path as osp
 import numpy as np
@@ -16,14 +17,14 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import warnings
 import sys
+import statistics
 warnings.filterwarnings("ignore")
 
-
-def save_fig( fig_id , IMAGES_PATH, fig_extension="png", resolution=300):
+def save_fig( fig_id , IMAGES_PATH, fig_extension="png", resolution=500):
     os.makedirs(IMAGES_PATH, exist_ok=True)
     path = os.path.join(IMAGES_PATH, fig_id + "." + fig_extension)
     plt.savefig(path, format=fig_extension, dpi=resolution)
-
+    
 def compute_assembly_rmsd(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idxs, align_lig_idxs, align_all_idxs, cycles , **kwargs):
     """ Returns assembly RMSD.
 
@@ -226,7 +227,6 @@ def compute_aligned_pos(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idx
                                                              coords = centered_walker_pos,
                                                              idxs = range(len(ref_bb_idxs)))
 
-
         # reorder the sup_walker_pos using the assignments
         reorder_walker_pos = np.zeros((len(ref_lig_idxs),3))
 
@@ -240,9 +240,10 @@ def compute_aligned_pos(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idx
 
     return np.array(all_pos)
 
+
 class FTAnalysisEngine(object):
 
-    def __init__(self, base_dir,  filename , mode , ref_pdb  , ref_bb_idxs, ref_lig_idxs , align_bb_idxs , align_lig_idxs ,  align_all_idxs ,**kwargs):
+    def __init__(self, base_dir, filename, mode , ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idxs, align_lig_idxs , align_all_idxs, **kwargs):
         self.base_dir = base_dir
         self._h5 = WepyHDF5(filename=filename,mode=mode)  
         self.ref_pdb = ref_pdb
@@ -254,11 +255,8 @@ class FTAnalysisEngine(object):
         self.has_been_called = {}
         with self._h5:
             self.cycles = self._h5.num_run_cycles(0)
-            self.walkers = self._h5.num_trajs
-            
+            self.walkers = self._h5.num_trajs 
         
-        
-
     """Calculate the assembly and pose RMSD between the reference and query coordinates
 
     Parameters
@@ -301,8 +299,8 @@ class FTAnalysisEngine(object):
             observables sub-field that the computed values will be saved to.
 
         """
-        self.has_been_called["assembly_rmsd"] = True
 
+        self.has_been_called["assembly_rmsd"] = True
         
         with self._h5:
             assembly_rmsd_list = self._h5.compute_observable(compute_assembly_rmsd,
@@ -359,7 +357,7 @@ class FTAnalysisEngine(object):
         
         with self._h5:
             aligned_pos_list = self._h5.compute_observable(compute_aligned_pos,
-                                                            ['positions','box_vectors','assignments'] ,
+                                                            ['positions','box_vectors','assignments'],
                                                             args = ((pdbfile , self.ref_bb_idxs , self.ref_lig_idxs , self.align_bb_idxs , self.align_lig_idxs ,  self.align_all_idxs , self.cycles)),
                                                             save_to_hdf5 = field_tag
                                                             )
@@ -368,8 +366,127 @@ class FTAnalysisEngine(object):
         self.aligned_pos_array = np.array(aligned_pos_list)
         return self.aligned_pos_array
     
+    def calculate_loss_per_particle (self , mlforce_scale):
+        """Calculate loss per number of particles.
+
+        Parameters
+        ----------
+
+        mlforce_scale : string
+            path to the mlforce_scale force list (.txt) file.
+            
+        """
+
+        self.has_been_called["calculate_loss"] = True
+
+        with self._h5:
+
+            assignments = np.array(self._h5.get_traj_field(0,0,'assignments'))
+            force_potential_energies = []
+            for walker in range(self.walkers):
+                force_potential_energy = np.array(self._h5.get_traj_field(0,walker,'force_potential_energy'))
+                force_potential_energies.append(force_potential_energy)
+
+        force_potential_energies = np.array(force_potential_energies).reshape(self.walkers, self.cycles)
+        mlforce_scale = np.loadtxt(mlforce_scale)
+        num_particles = assignments.shape[1]
+        self.loss = force_potential_energies / (mlforce_scale * num_particles)
+
+        return self.loss
     
-    def optimal_num_clusters(self, assembly_rmsd_cutoff ,  num_clusters, draw_plot = True ):
+    
+    def rmsd_analysis(self, assembly_rmsd_cutoff , pose_rmsd_cutoff, print_results = True):
+
+        """analyze the calculated assembly and pose RMSDs.
+
+        Parameters
+        ----------
+
+        assembly_rmsd_cutoff : float 
+            value of assembly_rmsd_cutoff in nm.
+
+        pose_rmsd_cutoff : float 
+            value of pose_rmsd_cutoff in nm.
+        
+        print-results : bool , defult = True
+        
+        """
+
+        if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' )) :
+
+            print("Please call assembly_rmsd(), pose_rmsd() methods before calling rmsd_analysis()")
+            return None
+            
+        else:
+
+            # calculate the minimum pose rmsd over the whole trajectories and its it's walker and cycle index
+            min_pose_rmsd = np.min(self.pose_rmsd_array)
+            w_min_pose, c_min_pose = np.where(self.pose_rmsd_array == min_pose_rmsd)
+            min_pose_rmsd_walker_index = w_min_pose[0]
+            min_pose_rmsd_cycle_index = c_min_pose[0]
+            assembly_rmsd_of_min_pose_rmsd = self.assembly_rmsd_array[min_pose_rmsd_walker_index , min_pose_rmsd_cycle_index]
+
+            min_assembly_rmsd = np.min(self.assembly_rmsd_array)
+            w_min_assembly, c_min_assembly = np.where(self.assembly_rmsd_array == min_assembly_rmsd)
+            min_assembly_rmsd_walker_index = w_min_assembly[0]
+            min_assembly_rmsd_cycle_index =  c_min_assembly[0]
+            pose_rmsd_of_min_assembly_rmsd = self.pose_rmsd_array[min_assembly_rmsd_walker_index , min_assembly_rmsd_cycle_index]
+
+
+
+            # obtain valid frames lig pos and idxs based on the assembly RMSD
+            valid_frames = self.assembly_rmsd_array < assembly_rmsd_cutoff #valid_poses
+           
+
+            # calculate the percentage of frames with valid assembly and pose RMSD in each walker
+            num_frames_valid_assembly, num_frames_valid_pose = [] , []
+
+            for i in range(self.walkers):
+
+                valid_assembly_idxs = np.where(self.assembly_rmsd_array[i] < assembly_rmsd_cutoff)
+                valid_pose_idxs = np.where(self.pose_rmsd_array[i] < pose_rmsd_cutoff)
+                num_frames_valid_assembly.append(np.shape(valid_assembly_idxs)[1])
+                num_frames_valid_pose.append(np.shape(valid_pose_idxs)[1])
+            
+            percentage_valid_assembly = 100 * np.array(num_frames_valid_assembly)/self.cycles
+            percentage_valid_pose = 100 * np.array(num_frames_valid_pose)/self.cycles
+
+            # calculate the percentage of frames with valid assembly or pose RMSD over the whole trajectories
+            num_total_valid_assembly = np.shape(np.where(valid_frames))[1]
+            num_total_valid_pose = np.shape(np.where(self.pose_rmsd_array < pose_rmsd_cutoff))[1]
+            percentage_total_valid_pose = 100 * np.array(num_total_valid_pose)/(self.cycles * self.walkers)
+            percentage_total_valid_assembly = 100 * np.array(num_total_valid_assembly)/(self.cycles * self.walkers)
+
+            # calculate the percentage of the simulations that have at least 1 frames with valid assembly or pose RMSD
+            percentage_valid_assembly_sim = 100*(np.count_nonzero(np.array(num_frames_valid_assembly) > 0))/self.walkers 
+            percentage_valid_pose_sim = 100*(np.count_nonzero(np.array(num_frames_valid_pose) > 0))/(self.walkers)
+
+            rmsd_analysis_summary = {'title' : "rmsd_analysis_summary",
+                                    'percentage_valid_assembly' : percentage_valid_assembly,
+                                    'percentage_valid_pose' : percentage_valid_pose,
+                                    'percentage_total_valid_assembly' : percentage_total_valid_assembly,
+                                    'percentage_total_valid_pose' : percentage_total_valid_pose,
+                                    'percentage_valid_assembly_simulations' : percentage_valid_assembly_sim,
+                                    'percentage_valid_pose_simulations' :  percentage_valid_pose_sim,
+                                    'min_pos_rmsd' : min_pose_rmsd,
+                                    'min_pose_rmsd_walker_index' : min_pose_rmsd_walker_index,
+                                    'min_pose_rmsd_cycle_index' : min_pose_rmsd_cycle_index,
+                                    'assembly_rmsd_of_min_pose_rmsd' : assembly_rmsd_of_min_pose_rmsd,
+                                    'min_assembly_rmsd' : min_assembly_rmsd,
+                                    'min_assembly_rmsd_walker_index' : min_assembly_rmsd_walker_index,
+                                    'min_assembly_rmsd_cycle_index' : min_assembly_rmsd_cycle_index,
+                                    'pose_rmsd_of_min_assembly_rmsd' : pose_rmsd_of_min_assembly_rmsd
+                                    }
+
+            if (print_results):
+                for key, value in rmsd_analysis_summary.items():
+                    print(key, ':' , value)
+       
+
+            return rmsd_analysis_summary
+        
+    
+    def optimal_num_clusters(self, assembly_rmsd_cutoff , num_clusters, draw_plot = True ):
         """Find the optimal number of clusters by calculating the silhouette scores for different number of clusters.
         The optimal number of clusters k is the one that maximize the average silhouette over a range of possible values for k.
 
@@ -435,17 +552,16 @@ class FTAnalysisEngine(object):
                 # 2nd plot : Silhouette score
                 plt.figure(figsize=(8, 3))
                 plt.plot(num_clusters, silhouette_scores, "bo-")
-                plt.xlabel("$k$", fontsize=14)
-                plt.ylabel("Silhouette score", fontsize=14)
+                plt.xlabel("$k$", fontsize=12)
+                plt.ylabel("Silhouette score", fontsize=12)
                 plt.xticks(num_clusters)
                 save_fig( "silhouette_score_vs_k_plot" , plot_path )
                 return optimal_num_clusters_summary
+           
+    
+    
         
-
-        
-
-        
-    def clustering( self, assembly_rmsd_cutoff ,  num_clusters = None ):
+    def clustering( self, assembly_rmsd_cutoff ): #,  num_clusters = None ):
 
         """clustering the ghost particles positions.                                                                  
         Parameters
@@ -467,14 +583,17 @@ class FTAnalysisEngine(object):
             
         else:
 
-            if num_clusters is None:
-                num_clusters = self.optimal_num_clusters
+            # if num_clusters is None:
+            #     num_clusters = self.optimal_num_clusters
+                
 
             valid_frames = self.assembly_rmsd_array < assembly_rmsd_cutoff 
+
             self.valid_aligned_pos = self.aligned_pos_array[valid_frames]
             self.valid_walker_idxs , self.valid_cycle_idxs = np.where(valid_frames)
 
             num_frames = np.shape(self.valid_aligned_pos)[0]
+            num_clusters = int(num_frames / 10)
             self.num_atoms = np.shape(self.valid_aligned_pos)[1]
             valid_aligned_pos_reshaped = self.valid_aligned_pos.reshape(num_frames, self.num_atoms * 3)
             
@@ -495,11 +614,9 @@ class FTAnalysisEngine(object):
             self.frame_idxs = np.where(labels == most_pop_cluster_index)[0]
 
             return self.most_pop_cluster_center , self.frame_idxs
-    
-    
-    
+
     def find_centroid(self, print_results = True ): 
-        """Calculate the centroid ghost particles positions among the valid farmes with assembly RMSD below the cutoff.
+        """Calculate the centroid ghost particles positions among the valid farmes.
         Return the centroid summary, and save the centroid pdb.
 
         parameters
@@ -530,7 +647,8 @@ class FTAnalysisEngine(object):
             centroid_assembly_rmsd =  np.array(self.assembly_rmsd_array)[centroid_walker_index , centroid_cycle_index]
             centroid_pose_rmsd = np.array(self.pose_rmsd_array)[centroid_walker_index , centroid_cycle_index]
 
-            centroid_summary = {'min_ave_distance' : min_ave_distance,
+            centroid_summary = {'title': "centroid_summary",
+                                'min_ave_distance' : min_ave_distance,
                                 'walker' : centroid_walker_index,
                                 'cycle' : centroid_cycle_index,
                                 'assembly_rmsd': centroid_assembly_rmsd,
@@ -538,22 +656,105 @@ class FTAnalysisEngine(object):
 
             # save the pdb of centroid                                                                                              
             centered_lig_idxs = self.ref_pdb.top.select("chainid 1")
-
             centroid_pdb = mdj.Trajectory(centroid_pos , self.ref_pdb.atom_slice(centered_lig_idxs).top)
             centroid_pdb.save_pdb(osp.join(self.base_dir,f'centroid_pdb.pdb'))
 
             if (print_results):
+                print("Centroid Summary:")
                 for key, value in centroid_summary.items():
                     print(key, ':' , value)
+            # Open a file for writing
+            summary_path = osp.join(self.base_dir, "summary.txt")
+            with open(summary_path, 'w') as file:
+                for key, value in centroid_summary.items():
+                    line = f"{key}: {value}\n"
+                    file.write(line)
+           
 
             return centroid_summary
     
-    def rmsd_analysis(self, assembly_rmsd_cutoff , pose_rmsd_cutoff, print_results = True):
+    def plot (self):
+        """Plot assembly and pose RMSD, and loss per particles graphs."""
 
-        """analyze the calculated assembly and pose RMSDs.
+
+        if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' , 'calculate_loss')) :
+
+            print("Please call assembly_rmsd(), pose_rmsd(), and calculate_loss_per_particle methods before calling plot()")
+            return None    
+
+        else:
+
+            plot_path = osp.join(self.base_dir,'plots')
+            os.makedirs(plot_path, exist_ok=True)
+
+            cycles_array= range(0,self.cycles,1)
+            ave_pose_rmsd = np.mean(self.pose_rmsd_array,axis=0)
+            ave_assembly_rmsd = np.mean(self.assembly_rmsd_array,axis=0)
+
+            assemblyRMSD_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(cycles_array,self.assembly_rmsd_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            plt.plot(cycles_array,ave_assembly_rmsd,color='black',ls='-',lw=3 , label = 'Assembly RMSD')
+            
+            plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Assembly RMSD (nm)",fontsize=12,fontweight='bold',color='k')
+            plt.xticks(np.arange(0,100.1 , step = 20))
+            plt.yticks(np.arange(0,0.51 , step = 0.1))
+            plt.legend()
+            save_fig(f'assembly_rmsd.png' , plot_path )
+            plt.show
+
+            poseRMSD_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(cycles_array,self.pose_rmsd_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            plt.plot(cycles_array,ave_pose_rmsd,color='black',ls='-',lw=3 , label = 'Pose RMSD')
+
+            plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Pose RMSD (nm)",fontsize=12,fontweight='bold',color='k')
+            plt.xticks(np.arange(0,100.1 , step = 20))
+            plt.yticks(np.arange(0,0.71 , step = 0.1))
+            plt.legend()
+            save_fig(f'pose_rmsd.png' , plot_path )
+            plt.show
+
+            ave_loss = np.mean(self.loss,axis=0)
+        
+
+            loss_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(cycles_array,self.loss[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            plt.plot(cycles_array,ave_loss,color='black',ls='-',lw=3 , label = 'Loss per Particle')
+
+            plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
+            plt.legend()
+            save_fig(f'loss.png' , plot_path )
+            plt.show
+
+            loss_RMSD_fig = plt.figure(figsize = (5,5))
+            for walker in range (self.walkers):
+                plt.plot(self.assembly_rmsd_array[walker],self.loss[walker], 'o' , color='gray', alpha = 0.3)
+            
+            plt.xlabel("RMSD",fontsize=12,fontweight='bold',color='k')
+            plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
+            plt.yscale('log')
+            save_fig(f'loss_RMSD.png' , plot_path )
+            plt.show
+        
+    def rmsd_analysis_multiple_hdf5(self, run_nums, assembly_rmsds_array, pose_rmsds_array, assembly_rmsd_cutoff , pose_rmsd_cutoff, print_results = True):
+
+        """analyze the calculated assembly and pose RMSDs of multiple runs with the same number of walkers.
 
         Parameters
         ----------
+        run_nums : list of int
+            list of the run numbers.
+        
+        assembly_rmsds_array : ArrayLike of float
+            Assembly rmsds of all simulations (e.g. shape of 1: (8,100) shape of 2 simulations should be: (16,100))
+
+        pose_rmsds_array : ArrayLike of float
+            pose rmsds of all simulations (e.g. shape of 1: (8,100) shape of 2 simlations should be: (16,100))
 
         assembly_rmsd_cutoff : float 
             value of assembly_rmsd_cutoff in nm.
@@ -571,33 +772,40 @@ class FTAnalysisEngine(object):
             return None
             
         else:
+            self.has_been_called["rmsd_analysis_multi_hdf5"] = True
+            
+        
+            self.run_nums = run_nums
+            self.assembly_rmsds_array = assembly_rmsds_array
+            self.pose_rmsds_array = pose_rmsds_array
+            self.walkers_multi_hdf5 = assembly_rmsds_array.shape[0]
 
             # calculate the minimum pose rmsd over the whole trajectories and its it's walker and cycle index
-            min_pose_rmsd = np.min(self.pose_rmsd_array)
-            w_min_pose, c_min_pose = np.where(self.pose_rmsd_array == min_pose_rmsd)
-            min_pose_rmsd_w_index = w_min_pose[0]
+            min_pose_rmsd = np.min(self.pose_rmsds_array)
+            w_min_pose, c_min_pose = np.where(self.pose_rmsds_array == min_pose_rmsd)
             min_pose_rmsd_c_index = c_min_pose[0]
-            assembly_rmsd_of_min_pose_rmsd = self.assembly_rmsd_array[min_pose_rmsd_w_index , min_pose_rmsd_c_index]
+            assembly_rmsd_of_min_pose_rmsd = self.assembly_rmsds_array[w_min_pose[0] , min_pose_rmsd_c_index]
 
-            min_assembly_rmsd = np.min(self.assembly_rmsd_array)
-            w_min_assembly, c_min_assembly = np.where(self.assembly_rmsd_array == min_assembly_rmsd)
-            min_assembly_rmsd_w_index = w_min_assembly[0]
+            min_pose_rmsd_run_index, min_pose_rmsd_final_w_index = divmod(w_min_pose[0], self.walkers)
+            min_pose_rmsd_final_run_index = self.run_nums[min_pose_rmsd_run_index]  
+
+            min_assembly_rmsd = np.min(self.assembly_rmsds_array)
+            w_min_assembly, c_min_assembly = np.where(self.assembly_rmsds_array == min_assembly_rmsd)
             min_assembly_rmsd_c_index =  c_min_assembly[0]
-            pose_rmsd_of_min_assembly_rmsd = self.pose_rmsd_array[min_assembly_rmsd_w_index , min_assembly_rmsd_c_index]
-
-
+            pose_rmsd_of_min_assembly_rmsd = self.pose_rmsds_array[w_min_assembly[0] , min_assembly_rmsd_c_index]
+            min_assembly_rmsd_run_index, min_assembly_rmsd_final_w_index = divmod(w_min_assembly[0], self.walkers)
+            min_assembly_rmsd_final_run_index = self.run_nums[min_assembly_rmsd_run_index]  
 
             # obtain valid frames lig pos and idxs based on the assembly RMSD
-            valid_frames = self.assembly_rmsd_array < assembly_rmsd_cutoff #valid_poses
+            valid_frames = self.assembly_rmsds_array < assembly_rmsd_cutoff #valid_poses
            
-
             # calculate the percentage of frames with valid assembly and pose RMSD in each walker
             num_frames_valid_assembly, num_frames_valid_pose = [] , []
 
-            for i in range(self.walkers):
+            for i in range(assembly_rmsds_array.shape[0]):
 
-                valid_assembly_idxs = np.where(self.assembly_rmsd_array[i] < assembly_rmsd_cutoff)
-                valid_pose_idxs = np.where(self.pose_rmsd_array[i] < pose_rmsd_cutoff)
+                valid_assembly_idxs = np.where(self.assembly_rmsds_array[i] < assembly_rmsd_cutoff)
+                valid_pose_idxs = np.where(self.pose_rmsds_array[i] < pose_rmsd_cutoff)
                 num_frames_valid_assembly.append(np.shape(valid_assembly_idxs)[1])
                 num_frames_valid_pose.append(np.shape(valid_pose_idxs)[1])
             
@@ -607,88 +815,206 @@ class FTAnalysisEngine(object):
             # calculate the percentage of frames with valid assembly or pose RMSD over the whole trajectories
             num_total_valid_assembly = np.shape(np.where(valid_frames))[1]
             num_total_valid_pose = np.shape(np.where(self.pose_rmsd_array < pose_rmsd_cutoff))[1]
-            percentage_total_valid_pose = 100 * np.array(num_total_valid_pose)/(self.cycles * self.walkers)
-            percentage_total_valid_assembly = 100 * np.array(num_total_valid_assembly)/(self.cycles * self.walkers)
+            percentage_total_valid_pose = 100 * np.array(num_total_valid_pose)/(self.cycles * self.walkers_multi_hdf5)
+            percentage_total_valid_assembly = 100 * np.array(num_total_valid_assembly)/(self.cycles * self.walkers_multi_hdf5)
 
             # calculate the percentage of the simulations that have at least 1 frames with valid assembly or pose RMSD
-            percentage_valid_assembly_sim = 100*(np.count_nonzero(np.array(num_frames_valid_assembly) > 0))/self.walkers 
-            percentage_valid_pose_sim = 100*(np.count_nonzero(np.array(num_frames_valid_pose) > 0))/(self.walkers)
+            percentage_valid_assembly_sim = 100*(np.count_nonzero(np.array(num_frames_valid_assembly) > 0))/self.walkers_multi_hdf5
+            percentage_valid_pose_sim = 100*(np.count_nonzero(np.array(num_frames_valid_pose) > 0))/self.walkers_multi_hdf5
 
-            rmsd_analysis_summary = { 'percentage_valid_assembly' : percentage_valid_assembly,
+            self.rmsd_analysis_summary_multi_hdf5 = {'title' : "rmsd_analysis_multi_hdf5_summary",
+                                    'percentage_valid_assembly' : percentage_valid_assembly,
                                     'percentage_valid_pose' : percentage_valid_pose,
                                     'percentage_total_valid_assembly' : percentage_total_valid_assembly,
                                     'percentage_total_valid_pose' : percentage_total_valid_pose,
                                     'percentage_valid_assembly_simulations' : percentage_valid_assembly_sim,
                                     'percentage_valid_pose_simulations' :  percentage_valid_pose_sim,
                                     'min_pos_rmsd' : min_pose_rmsd,
-                                    'min_pose_rmsd_w_index' : min_pose_rmsd_w_index,
-                                    'min_pose_rmsd_c_index' : min_pose_rmsd_c_index,
+                                    'min_pose_rmsd_run_index' : min_pose_rmsd_final_run_index,
+                                    'min_pose_rmsd_walker_index' : min_pose_rmsd_final_w_index,
+                                    'min_pose_rmsd_cycle_index' : min_pose_rmsd_c_index,
                                     'assembly_rmsd_of_min_pose_rmsd' : assembly_rmsd_of_min_pose_rmsd,
                                     'min_assembly_rmsd' : min_assembly_rmsd,
-                                    'min_assembly_rmsd_w_index' : min_assembly_rmsd_w_index,
-                                    'min_assembly_rmsd_c_index' : min_assembly_rmsd_c_index,
+                                    'min_assembly_rmsd_run_index' : min_assembly_rmsd_final_run_index,
+                                    'min_assembly_rmsd_walker_index' : min_assembly_rmsd_final_w_index,
+                                    'min_assembly_rmsd_cycle_index' : min_assembly_rmsd_c_index,
                                     'pose_rmsd_of_min_assembly_rmsd' : pose_rmsd_of_min_assembly_rmsd
-                                    }
+                                    }     
 
+        if (print_results):
+            for key, value in self.rmsd_analysis_summary_multi_hdf5.items():
+                print(key, ':' , value)
+            
+            
 
-            if (print_results):
-                for key, value in rmsd_analysis_summary.items():
-                    print(key, ':' , value)
+        return self.rmsd_analysis_summary_multi_hdf5
+        
+    def clustering_multi_hdf5( self, assembly_rmsds_array , pose_rmsds_array, aligned_poses_array , assembly_rmsd_cutoff ): #,  num_clusters = None ):
 
-            return rmsd_analysis_summary
-
-    def calculate_loss_per_particle (self , mlforce_scale):
-        """Calculate loss per number of particles.
-
+        """clustering the ghost particles positions of multiple runs with the same number of walkers.                                                                  
         Parameters
         ----------
 
-        mlforce_scale : string
-            path to the mlforce_scale force list (.txt) file.
-            
-        """
+        assembly_rmsds_array : ArrayLike of float
+            Assembly rmsds of all simulations (e.g. shape of 1: (8,100) shape of 2 simulations should be: (16,100))
 
-        self.has_been_called["calculate_loss"] = True
-
-        with self._h5:
-
-            assignments = np.array(self._h5.get_traj_field(0,0,'assignments'))
-            force_potential_energies = []
-            for walker in range(self.walkers):
-                force_potential_energy = np.array(self._h5.get_traj_field(0,walker,'force_potential_energy'))
-                force_potential_energies.append(force_potential_energy)
-
-        force_potential_energies = np.array(force_potential_energies).reshape(self.walkers, self.cycles)
-        mlforce_scale = np.loadtxt(mlforce_scale)
-        num_particles = assignments.shape[1]
-        self.loss = force_potential_energies / (mlforce_scale * num_particles)
-
-        return self.loss
+        pose_rmsds_array : ArrayLike of float
+            pose rmsds of all simulations (e.g. shape of 1: (8,100) shape of 2 simlations should be: (16,100))
         
+        aligned_poses_array: ArrayLike of float
+            aligend poses of ghost particles of all simulations (e.g. shape of 1: (8,100,7,3) shape of 2 simulations should be: (16,100,7,3))
+
+
+        assembly_rmsd_cutoff : float 
+            Assembly rmsd cutoff value in nm.
+
+        num_clusters : int , optional
+            Number of clusters. Default = ss_optimal_num_clusters
+        
+        """ 
+        
+
+        if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' , 'aligned_pos')) :
+
+            print("Please call assembly_rmsd(), pose_rmsd(), and aligned_pos() methods before calling clustering_multi_hdf5()")
+            return None
+            
+        else:
+            
+            
     
-    def plot (self):
-        """Plot assembly and pose RMSD, and loss per particle graphs.
-        You may want to change the xticks and yticks based on your plot.
+
+            # if num_clusters is None:
+            #     num_clusters = self.optimal_num_clusters
+
+            self.has_been_called["clustering_multi_hdf5"] = True
+            self.assembly_rmsds_array = assembly_rmsds_array
+            self.pose_rmsds_array = pose_rmsds_array
+            self.aligned_poses_array = aligned_poses_array
+                
+            valid_frames = self.assembly_rmsds_array < assembly_rmsd_cutoff 
+
+            self.valid_aligned_pos = self.aligned_poses_array[valid_frames]
+            self.valid_walker_idxs , self.valid_cycle_idxs = np.where(valid_frames)
+
+            num_frames = np.shape(self.valid_aligned_pos)[0]
+            num_clusters = int(num_frames / 10)
+            self.num_atoms = np.shape(self.valid_aligned_pos)[1]
+            valid_aligned_pos_reshaped = self.valid_aligned_pos.reshape(num_frames, self.num_atoms * 3)
+            
+            # find the optimal number of clusters
+            kmeans = KMeans(n_clusters=num_clusters, n_init = 10, random_state=42).fit(valid_aligned_pos_reshaped)
+            cluster_centers = (kmeans.cluster_centers_).reshape(num_clusters,self.num_atoms,3)
+            labels = kmeans.labels_
+
+            # obtain the most populated cluster center                                                                               
+            population = []
+            for i in np.unique(labels):
+                pop = len(np.where(labels == i)[0])
+                population.append(pop)
+
+
+            most_pop_cluster_index = np.argmax(population)
+            self.most_pop_cluster_center = cluster_centers[most_pop_cluster_index].reshape(self.num_atoms,3)
+            self.frame_idxs = np.where(labels == most_pop_cluster_index)[0]
+
+            return self.most_pop_cluster_center , self.frame_idxs
+
+    def find_centroid_multi_hdf5(self, multi_hdf5_output_dir, run_nums, print_results = True ): 
+        """Calculate the centroid ghost particles positions among the valid farmes of multiple runs with the same number of walkers.
+        Return the centroid summary, and save the centroid pdb.
+
+        parameters
+        ----------
+        multi_hdf5_output_dir : string
+            path to the output directory for multi-hdf5 analysis
+            
+        run_nums : list of int
+            list of the run numbers.
+
+        print_results : bool, defult = True
+ 
         """
+        if ('clustering_multi_hdf5' not in self.has_been_called ) :
+
+            print("Please call clustering_multi_hdf5() method before calling find_centroid_multi_hdf5().")
+            return None
+            
+        else:
+            self.has_been_called["find_centroid_multi_hdf5"] = True
+            self.multi_hdf5_output_dir = multi_hdf5_output_dir
+            self.run_nums = run_nums
+
+            distances = ave_distances  = np.zeros(len(self.frame_idxs))
+            
+            for i,v in enumerate(self.frame_idxs):
+                for j in range(self.num_atoms):
+                    distances [i] += distance.euclidean(self.most_pop_cluster_center[j], self.valid_aligned_pos[v][j])
+                ave_distances [i] = distances [i] / self.num_atoms
+
+            
+            min_ave_distance = np.amin(ave_distances)
+            centroid_frame_index = self.frame_idxs[np.where(ave_distances == min_ave_distance)]
+            centroid_pos = self.valid_aligned_pos[centroid_frame_index].reshape(self.num_atoms,3)
+            centroid_walker_index = self.valid_walker_idxs[centroid_frame_index][0]
+            centroid_cycle_index = self.valid_cycle_idxs[centroid_frame_index][0]
+            centroid_assembly_rmsd =  np.array(self.assembly_rmsds_array)[centroid_walker_index , centroid_cycle_index]
+            centroid_pose_rmsd = np.array(self.pose_rmsds_array)[centroid_walker_index , centroid_cycle_index]
+            centroid_run_index, centroid_final_walker_index = divmod(centroid_walker_index, self.walkers)
+            centroid_final_run_index = self.run_nums[centroid_run_index]  
+            
+            self.centroid_summary_multi_hdf5 = {'title': "centroid_summary_multi_hdf5",
+                                'min_ave_distance' : min_ave_distance,
+                                'run' : centroid_final_run_index,
+                                'walker' : centroid_final_walker_index,
+                                'cycle' : centroid_cycle_index,
+                                'assembly_rmsd': centroid_assembly_rmsd,
+                                'pose_rmsd' : centroid_pose_rmsd}
+
+            # save the pdb of centroid                                                                                              
+            centered_lig_idxs = self.ref_pdb.top.select("chainid 1")
+            centroid_pdb = mdj.Trajectory(centroid_pos , self.ref_pdb.atom_slice(centered_lig_idxs).top)
+            os.makedirs(self.multi_hdf5_output_dir , exist_ok=True)
+            centroid_pdb_path = osp.join(self.multi_hdf5_output_dir,f'centroid_pdb_multi_hdf5.pdb' )
+            centroid_pdb.save_pdb(centroid_pdb_path)
+         
+            if (print_results):
+                print("Centroid Summary:")
+                for key, value in self.centroid_summary_multi_hdf5.items():
+                    print(key, ':' , value)
+                       
+            return self.centroid_summary_multi_hdf5
+      
+    
+    
+    def plot_multi_hdf5 (self, run_nums, multi_hdf5_output_dir, assembly_rmsds_array, pose_rmsds_array, losses_array):
+        """Plot assembly and pose RMSD and loss per particles graphs for multi-hdf5 analysis"""
+
 
         if any(k not in self.has_been_called for k in ('assembly_rmsd' , 'pose_rmsd' , 'calculate_loss')) :
 
-            print("Please call assembly_rmsd(), pose_rmsd(), and calculate_loss_poer_particle methods before calling plot()")
+            print("Please call assembly_rmsd(), pose_rmsd(), and calculate_loss_per_particle methods before calling plot()")
             return None    
 
         else:
+            self.run_nums = run_nums
+            self.multi_hdf5_output_dir = multi_hdf5_output_dir
+            self.assembly_rmsds_array = assembly_rmsds_array
+            self.pose_rmsds_array = pose_rmsds_array
+            self.losses_array = losses_array
+            self.walkers_multi_hdf5 = assembly_rmsds_array.shape[0]
+            
 
-            plot_path = osp.join(self.base_dir,'plots')
+            plot_path = osp.join(self.multi_hdf5_output_dir,'plots')
             os.makedirs(plot_path, exist_ok=True)
 
             cycles_array= range(0,self.cycles,1)
-            ave_pose_rmsd = np.mean(self.pose_rmsd_array,axis=0)
-            ave_assembly_rmsd = np.mean(self.assembly_rmsd_array,axis=0)
-            ave_loss = np.mean(self.loss,axis=0)
+            ave_pose_rmsd = np.mean(self.pose_rmsds_array,axis=0)
+            ave_assembly_rmsd = np.mean(self.assembly_rmsds_array,axis=0)
 
             assemblyRMSD_fig = plt.figure(figsize = (5,5))
-            for walker in range (self.walkers):
-                plt.plot(cycles_array,self.assembly_rmsd_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            for walker in range (self.walkers_multi_hdf5):
+                plt.plot(cycles_array,self.assembly_rmsds_array[walker],color='gray',ls='-',lw=3 , alpha = 0.3)
             plt.plot(cycles_array,ave_assembly_rmsd,color='black',ls='-',lw=3 , label = 'Assembly RMSD')
             
             plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
@@ -696,12 +1022,13 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.51 , step = 0.1))
             plt.legend()
-            save_fig(f'assembly_rmsd.png', plot_path )
+            save_fig(f'assembly_rmsd.png' , plot_path )
             plt.show
+            
 
             poseRMSD_fig = plt.figure(figsize = (5,5))
-            for walker in range (self.walkers):
-                plt.plot(cycles_array,self.pose_rmsd_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            for walker in range (self.walkers_multi_hdf5):
+                plt.plot(cycles_array,self.pose_rmsds_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
             plt.plot(cycles_array,ave_pose_rmsd,color='black',ls='-',lw=3 , label = 'Pose RMSD')
 
             plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
@@ -709,25 +1036,52 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.71 , step = 0.1))
             plt.legend()
-            save_fig(f'Pose_rmsd.png', plot_path )
-            
+            save_fig(f'pose_rmsd.png' , plot_path )
+            plt.show
+
+            ave_loss = np.mean(self.losses_array,axis=0)
+        
+
             loss_fig = plt.figure(figsize = (5,5))
-            for walker in range (self.walkers):
-                plt.plot(cycles_array,self.loss[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
+            for walker in range (self.walkers_multi_hdf5):
+                plt.plot(cycles_array,self.losses_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
             plt.plot(cycles_array,ave_loss,color='black',ls='-',lw=3 , label = 'Loss per Particle')
 
             plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.legend()
-            save_fig(f'loss.png', plot_path )
+            save_fig(f'loss.png' , plot_path )
+            plt.show
 
             loss_RMSD_fig = plt.figure(figsize = (5,5))
-            for walker in range (self.walkers):
-                plt.plot(self.assembly_rmsd_array[walker], self.loss[walker], 'o' , color='gray', alpha = 0.3)
+            for walker in range (self.walkers_multi_hdf5):
+                plt.plot(self.assembly_rmsds_array[walker],self.losses_array[walker], 'o' , color='gray', alpha = 0.3)
             
             plt.xlabel("RMSD",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.yscale('log')
-            save_fig(f'loss_RMSD.png', plot_path )
-            
+            save_fig(f'loss_RMSD.png' , plot_path )
+            plt.show
 
+
+    def save_summary_multi_hdf5(self):
+        """save the summary of the rmsd analysis and centroid in a txt file.
+        
+        """
+
+        if any(k not in self.has_been_called for k in ('rmsd_analysis_multi_hdf5' , 'find_centroid_multi_hdf5')) :
+
+            print("Please call rmsd_analysis_multi_hdf5(), and find_centroid_multi_hdf5() methods before calling save_summary_multi_hdf5()")
+            return None 
+
+        else:   
+            
+            with open(osp.join(self.multi_hdf5_output_dir , "summary.txt") , 'w') as file:
+                
+                for key, value in self.rmsd_analysis_summary_multi_hdf5.items():
+                    line = f"{key}: {value}\n"
+                    file.write(line)
+                for key, value in self.centroid_summary_multi_hdf5.items():
+                    line = f"{key}: {value}\n"
+                    file.write(line)
+                
