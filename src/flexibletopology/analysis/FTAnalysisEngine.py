@@ -587,7 +587,6 @@ class FTAnalysisEngine(object):
 
             # if num_clusters is None:
             #     num_clusters = self.optimal_num_clusters
-                
 
             valid_frames = self.assembly_rmsd_array < assembly_rmsd_cutoff 
 
@@ -704,7 +703,6 @@ class FTAnalysisEngine(object):
             plt.yticks(np.arange(0,0.51 , step = 0.1))
             plt.legend()
             save_fig(f'assembly_rmsd' , plot_path )
-            plt.show
 
             poseRMSD_fig = plt.figure(figsize = (5,5))
             for walker in range (self.walkers):
@@ -717,7 +715,6 @@ class FTAnalysisEngine(object):
             plt.yticks(np.arange(0,0.71 , step = 0.1))
             plt.legend()
             save_fig(f'pose_rmsd' , plot_path )
-            plt.show
 
             ave_loss = np.mean(self.loss,axis=0)
         
@@ -731,7 +728,6 @@ class FTAnalysisEngine(object):
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.legend()
             save_fig(f'loss' , plot_path )
-            plt.show
 
             loss_RMSD_fig = plt.figure(figsize = (5,5))
             for walker in range (self.walkers):
@@ -741,7 +737,7 @@ class FTAnalysisEngine(object):
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.yscale('log')
             save_fig(f'loss_RMSD' , plot_path )
-            plt.show
+        
         
     def rmsd_analysis_multiple_hdf5(self, run_nums, assembly_rmsds_array, pose_rmsds_array, assembly_rmsd_cutoff , pose_rmsd_cutoff, print_results = True):
 
@@ -1025,9 +1021,7 @@ class FTAnalysisEngine(object):
             plt.yticks(np.arange(0,0.51 , step = 0.1))
             plt.legend()
             save_fig(f'assembly_rmsd' , plot_path )
-            plt.show
             
-
             poseRMSD_fig = plt.figure(figsize = (5,5))
             for walker in range (self.walkers_multi_hdf5):
                 plt.plot(cycles_array,self.pose_rmsds_array[walker],color='gray',ls='-',lw=3 ,  alpha = 0.3)
@@ -1039,7 +1033,6 @@ class FTAnalysisEngine(object):
             plt.yticks(np.arange(0,0.71 , step = 0.1))
             plt.legend()
             save_fig(f'pose_rmsd' , plot_path )
-            plt.show
 
             ave_loss = np.mean(self.losses_array,axis=0)
         
@@ -1053,7 +1046,6 @@ class FTAnalysisEngine(object):
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.legend()
             save_fig(f'loss' , plot_path )
-            plt.show
 
             loss_RMSD_fig = plt.figure(figsize = (5,5))
             for walker in range (self.walkers_multi_hdf5):
@@ -1063,8 +1055,6 @@ class FTAnalysisEngine(object):
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.yscale('log')
             save_fig(f'loss_RMSD' , plot_path )
-            plt.show
-
 
     def save_summary_multi_hdf5(self):
         """save the summary of the rmsd analysis and centroid in a txt file.
@@ -1190,7 +1180,6 @@ class FTAnalysisEngine(object):
     
                     attr_plot_path = osp.join(self.base_dir , "plots" , "attrs")
                     os.makedirs(attr_plot_path , exist_ok=True)
-
                     save_fig(f'attributes_walker{v}' , attr_plot_path )
-                    plt.show
+                
                 
