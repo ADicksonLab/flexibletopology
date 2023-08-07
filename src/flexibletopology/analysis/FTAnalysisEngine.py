@@ -1,4 +1,3 @@
-
 import os
 import os.path as osp
 import numpy as np
@@ -20,11 +19,13 @@ import sys
 import statistics
 warnings.filterwarnings("ignore")
 
-def save_fig( fig_id , IMAGES_PATH, fig_extension="png", resolution=500):
+def save_fig( fig_id , IMAGES_PATH, fig_extension="png"):
     os.makedirs(IMAGES_PATH, exist_ok=True)
+    plt.rcParams["figure.dpi"] = 200
     path = os.path.join(IMAGES_PATH, fig_id + "." + fig_extension)
-    plt.savefig(path, format=fig_extension, dpi=resolution)
+    plt.savefig(path, format=fig_extension)
     
+
 def compute_assembly_rmsd(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idxs, align_lig_idxs, align_all_idxs, cycles , **kwargs):
     """ Returns assembly RMSD.
 
@@ -93,7 +94,6 @@ def compute_assembly_rmsd(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_i
         assembly_rmsds.append(assembly_rmsd)
 
     return np.array(assembly_rmsds)
-
 
 def compute_pose_rmsd(fields, ref_pdb, ref_bb_idxs, ref_lig_idxs, align_bb_idxs, align_lig_idxs, align_all_idxs, cycles , **kwargs):
 
@@ -254,8 +254,10 @@ class FTAnalysisEngine(object):
         self.align_all_idxs = align_all_idxs
         self.has_been_called = {}
         with self._h5:
+            self.runs = self._h5.num_runs
             self.cycles = self._h5.num_run_cycles(0)
             self.walkers = self._h5.num_trajs 
+            self.num_atoms = self._h5.num_atoms
         
     """Calculate the assembly and pose RMSD between the reference and query coordinates
 
@@ -534,7 +536,7 @@ class FTAnalysisEngine(object):
                                     }
             # 
             if (draw_plot):
-                plot_path = os.path.join(self.base_dir, "Clustering")
+                plot_path = os.path.join(self.base_dir, "plots", "clustering")
                 os.makedirs(plot_path, exist_ok=True)
 
                 # 1st plot : elbow 
@@ -701,7 +703,7 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.51 , step = 0.1))
             plt.legend()
-            save_fig(f'assembly_rmsd.png' , plot_path )
+            save_fig(f'assembly_rmsd' , plot_path )
             plt.show
 
             poseRMSD_fig = plt.figure(figsize = (5,5))
@@ -714,7 +716,7 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.71 , step = 0.1))
             plt.legend()
-            save_fig(f'pose_rmsd.png' , plot_path )
+            save_fig(f'pose_rmsd' , plot_path )
             plt.show
 
             ave_loss = np.mean(self.loss,axis=0)
@@ -728,7 +730,7 @@ class FTAnalysisEngine(object):
             plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.legend()
-            save_fig(f'loss.png' , plot_path )
+            save_fig(f'loss' , plot_path )
             plt.show
 
             loss_RMSD_fig = plt.figure(figsize = (5,5))
@@ -738,7 +740,7 @@ class FTAnalysisEngine(object):
             plt.xlabel("RMSD",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.yscale('log')
-            save_fig(f'loss_RMSD.png' , plot_path )
+            save_fig(f'loss_RMSD' , plot_path )
             plt.show
         
     def rmsd_analysis_multiple_hdf5(self, run_nums, assembly_rmsds_array, pose_rmsds_array, assembly_rmsd_cutoff , pose_rmsd_cutoff, print_results = True):
@@ -1022,7 +1024,7 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.51 , step = 0.1))
             plt.legend()
-            save_fig(f'assembly_rmsd.png' , plot_path )
+            save_fig(f'assembly_rmsd' , plot_path )
             plt.show
             
 
@@ -1036,7 +1038,7 @@ class FTAnalysisEngine(object):
             plt.xticks(np.arange(0,100.1 , step = 20))
             plt.yticks(np.arange(0,0.71 , step = 0.1))
             plt.legend()
-            save_fig(f'pose_rmsd.png' , plot_path )
+            save_fig(f'pose_rmsd' , plot_path )
             plt.show
 
             ave_loss = np.mean(self.losses_array,axis=0)
@@ -1050,7 +1052,7 @@ class FTAnalysisEngine(object):
             plt.xlabel("Cycle",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.legend()
-            save_fig(f'loss.png' , plot_path )
+            save_fig(f'loss' , plot_path )
             plt.show
 
             loss_RMSD_fig = plt.figure(figsize = (5,5))
@@ -1060,7 +1062,7 @@ class FTAnalysisEngine(object):
             plt.xlabel("RMSD",fontsize=12,fontweight='bold',color='k')
             plt.ylabel("Loss per Particle",fontsize=12,fontweight='bold',color='k')
             plt.yscale('log')
-            save_fig(f'loss_RMSD.png' , plot_path )
+            save_fig(f'loss_RMSD' , plot_path )
             plt.show
 
 
@@ -1084,4 +1086,111 @@ class FTAnalysisEngine(object):
                 for key, value in self.centroid_summary_multi_hdf5.items():
                     line = f"{key}: {value}\n"
                     file.write(line)
+
+    def convert_hdf5_to_dcd_attr(self , minimized_pdb_path , plot_attrs=False , walker_num_to_plot=None):
+        """Convert the wepy_HDF5 filr to dcds and extract attributes and save that as a text file.
+
+        parameters
+        ----------
+        minimized_pdb_path : string
+            path to the minimized_pos_pdb pdb file.
+
+        plot_attrs : bool, defult = False
+            
+        walker_num_to_plot : list of int , default = None
+            list of the walker numbers for plotting the attributes.
+ 
+        """
+        
+        self.minimized_pdb_path = minimized_pdb_path
+        self.plot_attrs = plot_attrs
+        self.walker_num_to_plot = walker_num_to_plot
+        
+        dcd_attrs_path = osp.join(self.base_dir , f'dcd_attrs')
+        os.makedirs(dcd_attrs_path, exist_ok=True)
+        pdb = mdj.load_pdb(minimized_pdb_path)
+        top = pdb.topology
+        
+        # Make sure the number of atoms matched in the pdb and the h5
+        pdb_atoms = len(pdb.xyz[0]) 
+        if self.num_atoms == pdb_atoms:
+            print('The number of atoms in the pdb and h5 matches.')
+            
+        print(f'This H5 has {self.runs} run(s), {self.walkers} walkers, and {self.cycles} cycles.')
+
+        
+        print('Making no resampling DCDs.')
+
+        with self._h5:
+            for i in range (self.walkers)  :
+                pos = np.array(self._h5.h5[f'runs/0/trajectories/{i}/positions'])
+                box_vectors = np.array(self._h5.h5[f'runs/0/trajectories/{i}/box_vectors'])
+                corrected_bvs = []
+                
+                for j,v in enumerate(box_vectors):
+                
+                    tmp = np.mean(v, axis=0)
+                    corrected_bvs.append(np.ndarray.tolist(tmp))
+
+                unitcell_angles = np.zeros(shape=(self.cycles,3)) #shape is (n_cycles, 3)
+                unitcell_angles.fill(90)
+
+                traj = mdj.Trajectory(pos, top,
+                                    unitcell_lengths=corrected_bvs,
+                                    unitcell_angles=unitcell_angles)
+                traj.save_dcd(dcd_attrs_path +'/'+'nores_walker'+str(i)+'.dcd')
+                print('DCD file of walker {} is saved'.format(i))
+                
+                # Save all attributes for all walkers
+                charges , sigmas , epsilons, alambdas = [] , [] , [] , [] 
+                for i in range(self.walkers):
+                    charge = np.array(self._h5.h5[f'/runs/0/trajectories/{i}/charges']).reshape(-1, 1)
+                    sigma = np.array(self._h5.h5[f'/runs/0/trajectories/{i}/sigmas']).reshape(-1, 1)
+                    epsilon = np.array(self._h5.h5[f'/runs/0/trajectories/{i}/epsilons']).reshape(-1, 1)
+                    alambda = np.array(self._h5.h5[f'/runs/0/trajectories/{i}/lambdas']).reshape(-1, 1)
+                    charges.append(charge)
+                    sigmas.append(sigma)
+                    epsilons.append(epsilon)
+                    alambdas.append(alambda)
+                    attributes = np.hstack((charge, sigma, epsilon, alambda))
+                    np.savetxt(osp.join(dcd_attrs_path,f'all_attr{i}.txt'), attributes, delimiter=' ')  
+
+        print("All Attributes Are Saved Succesfully")
+
+        if self.walker_num_to_plot:
+            if walker_num_to_plot == None:
+                print("Set the list of walker idxs to plot the attributes!")
+
+            else:
+                
+                num_gho = int(alambda.shape[0] / self.cycles)
+                cycles_array= range(0,self.cycles,1)
+                
+                for i,v in enumerate(self.walker_num_to_plot):
+                    a = alambdas[v].reshape(self.cycles, num_gho)
+                    c = charges[v].reshape(self.cycles, num_gho)
+                    e = epsilons[v].reshape(self.cycles, num_gho)
+                    s = sigmas[v].reshape(self.cycles, num_gho)
+                    
+                    fig, ax = plt.subplots(4, 1)
+                    fig.suptitle(f'Attributes of walker{v}')
+                    ax[0].plot(cycles_array , a)
+                    ax[1].plot(cycles_array , c)
+                    ax[2].plot(cycles_array , s)
+                    ax[3].plot(cycles_array , e)
+
+                    ax[3].set_xlabel("Cycle", fontsize=12,fontweight='bold',color='k')
+                    plt.setp(ax[0].get_xticklabels(), visible=False)
+                    plt.setp(ax[1].get_xticklabels(), visible=False)
+                    plt.setp(ax[2].get_xticklabels(), visible=False)
+                    ax[0].set_ylabel("Lambda" , fontsize=12,fontweight='bold',color='k')
+                    ax[1].set_ylabel("Charge" , fontsize=12,fontweight='bold',color='k')
+                    ax[2].set_ylabel("Sigma", fontsize=12,fontweight='bold',color='k')
+                    ax[3].set_ylabel("Epsilon", fontsize=12,fontweight='bold',color='k')
+    
+                    attr_plot_path = osp.join(self.base_dir , "plots" , "attrs")
+                    os.makedirs(attr_plot_path , exist_ok=True)
+
+                    save_fig(f'attributes_walker{v}' , attr_plot_path )
+                    plt.show
                 
