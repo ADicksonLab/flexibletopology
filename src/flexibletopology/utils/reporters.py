@@ -19,7 +19,7 @@ class H5Reporter(object):
 
     def __init__(self, traj_file_path, reportInterval=100, groups=30,
                  num_ghosts=3, time=True, temperature=True,
-                 forces=True, potentialEnergy=True, velocities=True,
+                 forces=False, potentialEnergy=True, velocities=False,
                  coordinates=True, global_variables=True, assignments=True):
         self.traj_file_path = traj_file_path
         self._h5 = None

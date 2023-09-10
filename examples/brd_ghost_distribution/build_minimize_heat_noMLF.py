@@ -32,6 +32,7 @@ print(f'hostname: {socket.gethostname()}')
 # Give arguments
 if sys.argv[1] == "-h" or sys.argv[1] == "--help" or len(sys.argv) < 4:
     print("arguments: n_ghosts run_num openmm_dir")
+    exit()
 else:
     n_ghosts = int(sys.argv[1])
     run_num = int(sys.argv[2])
@@ -75,7 +76,6 @@ TOPPAR_STR = ('toppar.str')
 # set output paths
 OUTPUTS_PATH = osp.join(f'build_outputs/',f'g{n_ghosts}',f'run{run_num}')
 SIM_TRAJ = osp.join(OUTPUTS_PATH, f'traj.dcd')
-H5REPORTER_FILE = osp.join(OUTPUTS_PATH,f'traj.h5')
 
 # load files
 psf = omma.CharmmPsfFile(SYSTEM_PSF)
@@ -92,7 +92,7 @@ TIMESTEP = 0.002*unit.picoseconds
 NUM_STEPS = 10000
 
 GHOST_MASS = 12 # AMU
-REPORT_STEPS = 50
+REPORT_STEPS = 500
 
 # system building values
 WIDTH = 0.3 # nm
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     begin = time.time()
 
     for temp_idx, TEMP in enumerate(TEMPERATURES):
-
+        H5REPORTER_FILE = osp.join(OUTPUTS_PATH,f'traj{temp_idx}.h5')
         # integrator = CustomHybridIntegratorConstCharge(n_ghosts, TEMP*unit.kelvin, FRICTION_COEFFICIENT,
         #                                                TIMESTEP, attr_fric_coeffs=coeffs, attr_bounds=BOUNDS)
 
