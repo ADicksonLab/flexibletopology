@@ -11,8 +11,8 @@ molecules.
 
 We run molecular dynamics simulations using [[https://github.com/pandegroup/openmm][Openmm]] where the OpenMM
 Plugin [[https://github.com/ADicksonLab/mlforce.git][MLForce]] is employed to apply the ML-based forces.
-For more details read the [[https://chemrxiv.org/engage/chemrxiv/article-details/626be58411b14616eb34a3f4][FLEXIBLE TOPOLOGY: A NEW METHOD FOR
-DYNAMIC DRUG DESIGN]] paper on Chemrxiv.
+For more details read the [[https://pubs.acs.org/doi/10.1021/acs.jctc.3c00409][Flexible Topology: A Dynamic Model of a Continuous Chemical Space]]
+paper in JCTC.
 
 * Installation
 To install this package do the folloeing commands

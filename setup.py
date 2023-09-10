@@ -40,5 +40,6 @@ setup(
         'numpy',
         'scipy',
         'scikit-learn',
+        'h5py',
     ],
 )
