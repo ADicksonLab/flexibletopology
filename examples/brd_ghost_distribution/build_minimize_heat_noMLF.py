@@ -49,9 +49,9 @@ elif not os.path.exists(plugins_path):
 omm.Platform.loadPluginsFromDirectory(plugins_path)
 
 # set input paths
-PLATFORM = 'CPU'
+#PLATFORM = 'CPU'
 #PLATFORM = 'Reference'
-#PLATFORM = 'CUDA'
+PLATFORM = 'CUDA'
 INPUTS_PATH = './inputs/'
 
 #### System specific information
@@ -86,11 +86,10 @@ pos_arr = np.array(crd.positions.value_in_unit(unit.nanometers))
 # MD simulations settings
 CONVERT_FAC = -0.2390057
 
-#TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
-TEMPERATURES = [10]
+TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.002*unit.picoseconds
-NUM_STEPS = 100
+NUM_STEPS = 10000
 
 GHOST_MASS = 12 # AMU
 REPORT_STEPS = 50
@@ -106,8 +105,7 @@ systemghost_group = 31
 
 # minimization values
 TOL = 100
-# MAXITR = 1000
-MAXITR = 10
+MAXITR = 1000
 
 # barostat values
 PRESSURE = 1 * unit.bar
@@ -222,7 +220,7 @@ if __name__ == '__main__':
 
         simulation.reporters.append(H5Reporter(H5REPORTER_FILE,
                                             reportInterval=REPORT_STEPS,
-                                            groups=mlforce_group, num_ghosts=n_ghosts))
+                                            groups=systemghost_group, num_ghosts=n_ghosts))
 
         
         simulation.reporters.append(mdj.reporters.DCDReporter(osp.join(OUTPUTS_PATH,
