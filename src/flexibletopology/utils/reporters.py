@@ -128,8 +128,8 @@ class H5Reporter(object):
             self._initialize(simulation)
             self._is_intialized = True
 
-        ml_state = simulation.context.getState(getForces=True, getEnergy=True,
-                                               getPositions=True, getVelocities=True,
+        ml_state = simulation.context.getState(getForces=self._forces, getEnergy=self._potentialEnerg,
+                                               getPositions=self._coordinates, getVelocities=self._velocities,
                                                groups={self._groups})
 
         if self._temperature:

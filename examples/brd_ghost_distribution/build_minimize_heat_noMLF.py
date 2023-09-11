@@ -13,7 +13,7 @@ import openmm.unit as unit
 from sys import stdout
 import time
 import sys
-# sys.path.append("/dickson/s2/fathinia/research/fltop")
+
 from flexibletopology.utils.integrators import CustomHybridIntegratorRestrictedChargeVariance
 
 from flexibletopology.utils.reporters import H5Reporter
@@ -30,13 +30,14 @@ import socket
 print(f'hostname: {socket.gethostname()}')
 
 # Give arguments
-if sys.argv[1] == "-h" or sys.argv[1] == "--help" or len(sys.argv) < 4:
-    print("arguments: n_ghosts run_num openmm_dir")
+if sys.argv[1] == "-h" or sys.argv[1] == "--help" or len(sys.argv) < 5:
+    print("arguments: n_ghosts run_num openmm_dir output_base_folder")
     exit()
 else:
     n_ghosts = int(sys.argv[1])
     run_num = int(sys.argv[2])
     openmm_path = sys.argv[3]
+    BASE_FOLDER = sys.argv[4]
 
 plugins_path = os.path.join(openmm_path,'lib','plugins')
 
@@ -50,7 +51,6 @@ elif not os.path.exists(plugins_path):
 omm.Platform.loadPluginsFromDirectory(plugins_path)
 
 # set input paths
-#PLATFORM = 'CPU'
 #PLATFORM = 'Reference'
 PLATFORM = 'CUDA'
 INPUTS_PATH = './inputs/'
@@ -74,7 +74,7 @@ np.random.seed(seed_num)
 TOPPAR_STR = ('toppar.str')
 
 # set output paths
-OUTPUTS_PATH = osp.join(f'build_outputs/',f'g{n_ghosts}',f'run{run_num}')
+OUTPUTS_PATH = osp.join(BASE_FOLDER,f'build_outputs/',f'g{n_ghosts}',f'run{run_num}')
 SIM_TRAJ = osp.join(OUTPUTS_PATH, f'traj.dcd')
 
 # load files
@@ -89,10 +89,11 @@ CONVERT_FAC = -0.2390057
 TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.002*unit.picoseconds
-NUM_STEPS = 10000
+NUM_STEPS = [10000 for t in TEMPERATURES]
+NUM_STEPS[-1] = 1000000
 
 GHOST_MASS = 12 # AMU
-REPORT_STEPS = 500
+REPORT_STEPS = 2000
 
 # system building values
 WIDTH = 0.3 # nm
@@ -219,8 +220,10 @@ if __name__ == '__main__':
         simulation.context.setState(latest_state)
 
         simulation.reporters.append(H5Reporter(H5REPORTER_FILE,
-                                            reportInterval=REPORT_STEPS,
-                                            groups=systemghost_group, num_ghosts=n_ghosts))
+                                               reportInterval=REPORT_STEPS,
+                                               coordinates=False,
+                                               assignments=False,
+                                               groups=systemghost_group, num_ghosts=n_ghosts))
 
         
         simulation.reporters.append(mdj.reporters.DCDReporter(osp.join(OUTPUTS_PATH,
@@ -233,7 +236,7 @@ if __name__ == '__main__':
                                                            potentialEnergy=True,
                                                            temperature=True))
 
-        simulation.step(NUM_STEPS)
+        simulation.step(NUM_STEPS[temp_idx])
         
         latest_state = simulation.context.getState(getPositions=True)
 

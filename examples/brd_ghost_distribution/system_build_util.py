@@ -169,7 +169,7 @@ class SystemBuild(object):
             nb_force = system.getForce(fidx)
             for i in range(n_ghosts):
                 nb_force.addParticle(0.0, #charge
-                                     0.095, #sigma (nm)  (make sure they don't get closer than 0.5 A to each other) previously it was 0.05
+                                     0.2, #sigma (nm)  (minimum distance between ghosts)
                                      1.0) #epsilon (kJ/mol)
         for fidx in cnb_forces:
             cnb_force = system.getForce(fidx)
