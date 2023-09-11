@@ -25,7 +25,7 @@ big_traj = mdj.join(traj_all)
 big_traj.save_dcd(osp.join(work_folder,'all_heating.dcd'))
 
 # concatenate attributes
-attr_names = ['charge','epsilon','sigma','lambda']
+attr_names = ['charge','sigma','epsilon','lambda']
 
 with(open(osp.join(work_folder,'all_attr.txt'),'w') as f):
     for i in range(n_files):
