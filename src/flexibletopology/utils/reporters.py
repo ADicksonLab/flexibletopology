@@ -8,7 +8,7 @@ import openmm.openmm as omm
 
 MAX_ATOM_NUMS = 100000
 
-# FIELDS = ['time', 'ml_forces', 'ml_potentialEnergy', 'ml_velosities',
+# FIELDS = ['time', 'ml_forces', 'ml_potentialEnergy', 'ml_velocities',
 #           'ml_coordinates']
 
 
@@ -19,7 +19,7 @@ class H5Reporter(object):
 
     def __init__(self, traj_file_path, reportInterval=100, groups=30,
                  num_ghosts=3, time=True, temperature=True,
-                 forces=True, potentialEnergy=True, velocities=True,
+                 forces=False, potentialEnergy=True, velocities=False,
                  coordinates=True, global_variables=True, assignments=True):
         self.traj_file_path = traj_file_path
         self._h5 = None
@@ -30,7 +30,7 @@ class H5Reporter(object):
         self._time = bool(time)
         self._forces = bool(forces)
         self._potentialEnerg = bool(potentialEnergy)
-        self._velosities = bool(velocities)
+        self._velocities = bool(velocities)
         self._coordinates = bool(coordinates)
         self._global_variables = bool(global_variables)
         self._assignments = bool(assignments)
@@ -65,8 +65,8 @@ class H5Reporter(object):
             self.h5.create_dataset('potentialEnergy',
                                    (0, ), maxshape=(None, ))
 
-        if self._velosities:
-            self.h5.create_dataset('velosities', (0, 0, 0),
+        if self._velocities:
+            self.h5.create_dataset('velocities', (0, 0, 0),
                                    maxshape=(None, MAX_ATOM_NUMS, 3))
 
         if self._coordinates:
@@ -120,7 +120,7 @@ class H5Reporter(object):
     def describeNextReport(self, simulation):
 
         steps = self._reportInterval - simulation.currentStep % self._reportInterval
-        return (steps, self._coordinates, self._velosities, self._forces, self._potentialEnerg)
+        return (steps, self._coordinates, self._velocities, self._forces, self._potentialEnerg)
 
     def report(self, simulation, state):
 
@@ -156,9 +156,9 @@ class H5Reporter(object):
             self._extend_traj_field(
                 'potentialEnergy', np.array(potentialEnergy))
 
-        if self._velosities:
+        if self._velocities:
             velocities = ml_state.getVelocities(asNumpy=True)
-            self._extend_traj_field('velosities', velocities)
+            self._extend_traj_field('velocities', velocities)
 
         if self._global_variables:
             for variable_name in self.GLOBAL_VARIABLES:
