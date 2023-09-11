@@ -114,11 +114,10 @@ proc ft_set_attr_state {mol frame} {
 	    set sigma $ft_attr($mol,$i,$frame,1)
 	    set epsilon $ft_attr($mol,$i,$frame,2)
 	    set lambda $ft_attr($mol,$i,$frame,3)
-	    puts "charge: $charge"
-	    puts "sigma: $sigma"
-	    puts "epsilon: $epsilon"
-	    puts "charge: $charge"
-	    
+	    #puts "charge: $charge"
+	    #puts "sigma: $sigma"
+	    #puts "epsilon: $epsilon"
+	    #puts "lambda: $lambda"
 
 	    # set the color using either charge or epsilon
 	    if {$ft_mode == "charge"} {
@@ -148,19 +147,9 @@ proc ft_set_attr_state {mol frame} {
 	    mol modcolor $rep_idx $mol Beta
 	    mol scaleminmax $mol $rep_idx 0.25 0.75000
 	    
-	    # set the size using sigma
-	    set sizemin 0.2
-	    set sizemax 0.7
-	    set sigmin 0.13
-	    set sigmax 0.5
-	    set sigfrac [expr ($sigma - $sigmin)/($sigmax - $sigmin)]
-	    if {$sigfrac < 0} {
-		set sigfrac 0
-	    } elseif {$sigfrac > 1} {
-		set sigfrac 1
-	    }
-	    set size [expr $sizemin + $sigfrac*($sizemax-$sizemin)]
-	    mol modstyle $rep_idx $mol VDW $size 27.000000
+	    # set the sigscale using sigma (as a fraction of the Argon sigma radius: 0.34 nm)
+	    set sigscale [expr $sigma/0.34]
+	    mol modstyle $rep_idx $mol VDW $sigscale 27.000000
 
 	    # use lambda to determine whether to render in opaque (lambda > 0.7), transparent (0.3 < lambda < 0.7), or ghost (lambda < 0.3) 
 	    if {$lambda > 0.7} {
