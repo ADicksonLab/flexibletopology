@@ -7,27 +7,22 @@ from flexibletopology.utils.mdtrajutils import extend_mdtraj_top
 
 n_ghosts = int(sys.argv[1])
 run_idx = int(sys.argv[2])
+base_folder = sys.argv[3]
 
-work_folder = osp.join('build_outputs',f'g{n_ghosts}',f'run{run_idx}')
+work_folder = osp.join(base_folder,'build_outputs',f'g{n_ghosts}',f'run{run_idx}')
 
 # concatenate trajectories
-pdb = mdj.load_pdb('inputs/brd_water_trim.pdb')
-big_top = extend_mdtraj_top(pdb.top,n_ghosts)
+pdb = mdj.load_pdb(osp.join(work_folder,'minimized_pos.pdb'))
 
 n_files = len(glob.glob(osp.join(work_folder,'heating*.dcd')))
 
 traj_all = []
 for i in range(n_files):
-    traj = mdj.load_dcd(osp.join(work_folder,f'heating{i}.dcd'),big_top)
+    traj = mdj.load_dcd(osp.join(work_folder,f'heating{i}.dcd'),pdb.top)
     traj_all.append(traj)
 
 big_traj = mdj.join(traj_all)
 big_traj.save_dcd(osp.join(work_folder,'all_heating.dcd'))
-
-# save system pdb (with ghost particles)
-pdb_path = osp.join('build_outputs',f'g{n_ghosts}','system.pdb')
-if not osp.exists(pdb_path):
-    big_traj[0].save_pdb(pdb_path)
 
 # concatenate attributes
 attr_names = ['charge','epsilon','sigma','lambda']
