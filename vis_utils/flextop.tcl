@@ -1,3 +1,8 @@
+user add key Down {ft_goto 0}
+user add key Up {ft_goto -1}
+user add key Left {ft_step -1}
+user add key Right {ft_step 1}
+
 proc ft_load_attributes {mol filename} {
     set f [open $filename]
     set t [read $f]
@@ -162,14 +167,72 @@ proc ft_set_attr_state {mol frame} {
 	}
     }   
 }
-	  
-proc ft_goto {frame {mol 0}} {
-    animate goto $frame
-    ft_set_attr_state $mol $frame
+
+proc ft_off {} {
+    # turns off all ft representations
+    global ft_idxs
+    global ft_firstrep
+    
+    set mol [molinfo top]
+    # use the ft_firstrep offset to determine the index of the representation to alter
+    set natoms [llength $ft_idxs($mol)]
+
+    for {set i 0} {$i < $natoms} {incr i} {
+	set rep_idx [expr $i + $ft_firstrep]
+
+	mol showrep $mol $rep_idx 0
+    }   
+}
+
+proc ft_on {} {
+    # turns on all ft representations
+    global ft_idxs
+    global ft_firstrep
+    
+    set mol [molinfo top]
+    # use the ft_firstrep offset to determine the index of the representation to alter
+    set natoms [llength $ft_idxs($mol)]
+
+    for {set i 0} {$i < $natoms} {incr i} {
+	set rep_idx [expr $i + $ft_firstrep]
+
+	mol showrep $mol $rep_idx 1
+    }   
+}
+
+proc ft_modmaterial {material} {
+    # makes all ft representations transparent
+    global ft_idxs
+    global ft_firstrep
+    
+    set mol [molinfo top]
+    # use the ft_firstrep offset to determine the index of the representation to alter
+    set natoms [llength $ft_idxs($mol)]
+
+    for {set i 0} {$i < $natoms} {incr i} {
+	set rep_idx [expr $i + $ft_firstrep]
+
+	mol modmaterial $rep_idx $mol $material
+    }   
+}
+
+proc ft_goto {frame} {
+    set mol [molinfo top]
+    if {$frame >= 0} {
+	animate goto $frame
+	ft_set_attr_state $mol $frame
+    } else {
+	set nf [molinfo $mol get numframes]
+	set findex [expr $nf + $frame]
+	if {$findex >= 0} {
+	    ft_goto $findex
+	}
+    }
     return
 }
 
-proc ft_step {step {mol 0}} {
+proc ft_step {step} {
+    set mol [molinfo top]
     set f [molinfo $mol get frame]
     set f2 [expr $f + $step]
     animate goto $f2
@@ -177,7 +240,8 @@ proc ft_step {step {mol 0}} {
     return
 }
 
-proc ft_update {{mol 0}} {
+proc ft_update {} {
+    set mol [molinfo top]
     set f [molinfo $mol get frame]
     ft_set_attr_state $mol $f
     return
@@ -196,3 +260,4 @@ proc ft_load_heating {} {
     mol	addfile	heating7.dcd -waitfor -1 $mol
     return
 }
+
