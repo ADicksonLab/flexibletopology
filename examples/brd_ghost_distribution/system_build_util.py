@@ -9,7 +9,9 @@ import openmm.app as omma
 import openmm as omm
 import openmm.unit as unit
 
-from flexibletopology.utils.openmmutils import read_params
+from flexibletopology.utils.openmmutils import read_params, nb_params_from_charmm_psf
+from flexibletopology.forces.nonbonded import add_gs_force, add_ghosts_to_nb_forces
+
 import sys
     
 class SystemBuild(object):
@@ -135,61 +137,6 @@ class SystemBuild(object):
 
         return COM_BS
 
-    def sigma_eps_charge_list(self, psf_file, ep_convert):
-
-        sys_sigma = []
-        sys_epsilon = []
-        sys_charge = []
-
-        for atom in psf_file.atom_list:
-            # in units of elementary charge
-            sys_charge.append(atom.charge)
-            # now in units of nm
-            half_rmin = atom.type.rmin*0.1
-            sigma = half_rmin*2/2**(1/6)
-            sys_sigma.append(sigma)
-            # now a positive number in kJ/mol
-            sys_epsilon.append(atom.type.epsilon/ep_convert)
-
-        return sys_sigma, sys_epsilon, sys_charge
-
-    def nb_cnb_force_lists(self, system, n_ghosts, n_part_system):
-        
-        nb_forces = []
-        cnb_forces = []
-
-        for i,force in enumerate(system.getForces()):
-            force.setForceGroup(i)
-            if force.__class__.__name__ == 'NonbondedForce':
-                nb_forces.append(force.getForceGroup()) # --> append i, list of indexes
-            if force.__class__.__name__ == 'CustomNonbondedForce':
-                cnb_forces.append(force.getForceGroup())
-
-        for fidx in nb_forces:
-            nb_force = system.getForce(fidx)
-            for i in range(n_ghosts):
-                nb_force.addParticle(0.0, #charge
-                                     0.2, #sigma (nm)  (minimum distance between ghosts)
-                                     1.0) #epsilon (kJ/mol)
-        for fidx in cnb_forces:
-            cnb_force = system.getForce(fidx)
-
-            for gh_idx in range(n_ghosts):
-                cnb_force.addParticle([0.0])
-            cnb_force.addInteractionGroup(set(range(n_part_system)),
-                                          set(range(n_part_system)))
-            #cnb_force.addInteractionGroup(set(range(n_part_system,n_part_system + n_ghosts)),
-            #                              set(range(n_part_system,n_part_system + n_ghosts)))
-
-            num_exclusion = cnb_force.getNumExclusions()
-
-        exclusion_list=[]
-        for i in range(num_exclusion):
-            particles = (nb_force.getExceptionParameters(i)[0],nb_force.getExceptionParameters(i)[1])
-            exclusion_list.append(particles)
-
-        return nb_forces, cnb_forces, exclusion_list
-
     def generate_init_signals(self, n_ghosts):
 
         initial_signals = np.zeros((n_ghosts, 4))
@@ -243,60 +190,6 @@ class SystemBuild(object):
         system.addForce(cbf)
         
         return system
-
-    def add_gs_force(self, system, n_ghosts, group_num, n_part_system,
-                     initial_signals, sys_sigma, sys_epsilon, sys_charge,
-                     exclusion_list):
-
-        for gh_idx in range(n_ghosts):
-            energy_function = f'lambda_g{gh_idx}*epsilon*(sor12-sor6)+138.935456*lambda_g{gh_idx}*charge1*charge2*charge_g{gh_idx}/r;'
-            energy_function += 'sor12 = sor6^2; sor6 = (sigma/r)^6;'
-            energy_function += f'sigma = 0.5*(sigma1+sigma2+sigma_g{gh_idx}); epsilon = sqrt(epsilon1*epsilon2*epsilon_g{gh_idx})'
-            gs_force = omm.CustomNonbondedForce(energy_function)
-
-            gs_force.addPerParticleParameter('charge')
-            gs_force.addPerParticleParameter('sigma')
-            gs_force.addPerParticleParameter('epsilon')
-            
-            # set to initial values
-            gs_force.addGlobalParameter(f'charge_g{gh_idx}', initial_signals[gh_idx, 0])
-            gs_force.addGlobalParameter(f'sigma_g{gh_idx}', initial_signals[gh_idx, 1])
-            gs_force.addGlobalParameter(f'epsilon_g{gh_idx}', initial_signals[gh_idx, 2])
-            gs_force.addGlobalParameter(f'lambda_g{gh_idx}', initial_signals[gh_idx, 3])
-            gs_force.addGlobalParameter(f'assignment_g{gh_idx}', 0)
-
-            # adding the del(signal)s [needed in the integrator]
-            gs_force.addEnergyParameterDerivative(f'lambda_g{gh_idx}')
-            gs_force.addEnergyParameterDerivative(f'charge_g{gh_idx}')
-            gs_force.addEnergyParameterDerivative(f'sigma_g{gh_idx}')
-            gs_force.addEnergyParameterDerivative(f'epsilon_g{gh_idx}')
-
-            # adding the systems params to the force
-            for p_idx in range(n_part_system):
-                gs_force.addParticle(
-                    [sys_charge[p_idx], sys_sigma[p_idx], sys_epsilon[p_idx]])
-
-            # for each force term you need to add ALL the particles even
-            # though we only use one of them!
-            for p_idx in range(n_ghosts):
-                gs_force.addParticle(
-                    [1.0, 0.0, 1.0]) # add ghosts using neutral parameters that won't affect the force at all
-
-            # interaction between ghost and system    
-            gs_force.addInteractionGroup(set(range(n_part_system)),
-                                         set([n_part_system + gh_idx]))
-
-
-            for j in range(len(exclusion_list)):
-                gs_force.addExclusion(exclusion_list[j][0], exclusion_list[j][1])
-
-            # set force parameters
-            gs_force.setForceGroup(group_num)
-            gs_force.setNonbondedMethod(gs_force.CutoffPeriodic)
-            gs_force.setCutoffDistance(1.0)
-            system.addForce(gs_force)
-        
-        return system
     
     def build_system_forces(self):
 
@@ -335,7 +228,7 @@ class SystemBuild(object):
         psf_ghost_res = self.psf.topology.addResidue('ghosts',
                                                 psf_ghost_chain)
         
-        sys_sigma, sys_epsilon, sys_charge = self.sigma_eps_charge_list(self.psf, self.ep_convert)
+        sys_nb_params = nb_params_from_charmm_psf(self.psf)
 
         # adding ghost particles to the system
         for i in range(n_ghosts):
@@ -345,7 +238,7 @@ class SystemBuild(object):
                              psf_ghost_res,
                              'G{0}'.format(i))
 
-        nb_forces, cnb_forces, exclusion_list = self.nb_cnb_force_lists(system, n_ghosts, n_part_system)
+        system, exclusion_list = add_ghosts_to_nb_forces(system, n_ghosts, n_part_system)
 
         # indices of ghost particles in the topology
         ghost_particle_idxs = list(range(n_part_system,(n_part_system+n_ghosts)))
@@ -358,8 +251,8 @@ class SystemBuild(object):
             system = self.add_mlforce(system, ghost_particle_idxs, target_features)
             
         system = self.add_custom_cbf(self.pdb, system, self.gg_group, n_ghosts, ghost_particle_idxs, self.binding_site_idxs)
-        system = self.add_gs_force(system, n_ghosts, self.sg_group, n_part_system, initial_signals,
-                                   sys_sigma, sys_epsilon, sys_charge, exclusion_list)
+        system = add_gs_force(system, n_ghosts=n_ghosts, n_part_system=n_part_system, initial_signals=initial_signals,
+                                   sys_params=sys_nb_params, exclusion_list=exclusion_list)
 
         return system, initial_signals, n_ghosts, self.psf.topology, self.crd.positions, target_features
 

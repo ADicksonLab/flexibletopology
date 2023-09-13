@@ -81,3 +81,20 @@ def writeBondEnergyString(num_ghosts):
             energy_string += ';'
 
     return energy_string
+
+def nb_params_from_charmm_psf(psf):
+
+    params = {}
+    params['sigma'] = []
+    params['epsilon'] = []
+    params['charge'] = []
+
+    for atom in psf.atom_list:
+        params['charge'].append(atom.charge)         # in units of elementary charge
+
+        half_rmin = atom.type.rmin*0.1         # now in units of nm
+        sigma = half_rmin*2/2**(1/6)
+        params['sigma'].append(sigma)
+        params['epsilon'].append(atom.type.epsilon/EP_CONVERT)          # now a positive number in kJ/mol
+
+    return params
