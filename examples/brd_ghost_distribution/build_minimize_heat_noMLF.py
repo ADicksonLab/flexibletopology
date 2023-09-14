@@ -84,8 +84,6 @@ pdb_file = mdj.load_pdb(SYSTEM_PDB)
 pos_arr = np.array(crd.positions.value_in_unit(unit.nanometers))
 
 # MD simulations settings
-CONVERT_FAC = -0.2390057
-
 TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.002*unit.picoseconds
@@ -151,7 +149,7 @@ if __name__ == '__main__':
     BUILD_UTILS = SystemBuild(psf=psf, crd=crd, pdb=pdb_file, n_ghosts=n_ghosts,
                               toppar_str=TOPPAR_STR, inputs_path=INPUTS_PATH,
                               width=WIDTH, binding_site_idxs=bs_idxs,
-                              min_dist=MIN_DIST, ep_convert=CONVERT_FAC,
+                              min_dist=MIN_DIST, 
                               gg_group=ghostghost_group, sg_group=systemghost_group,
                               ghost_mass=GHOST_MASS, attr_bounds=BOUNDS,
                               contForce=con_force)

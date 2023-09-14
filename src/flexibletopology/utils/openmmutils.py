@@ -3,6 +3,7 @@ import numpy as np
 from openmm import unit
 import openmm.app as omma
 
+EP_CONVERT= -0.2390057
 
 def read_params(filename, parfiles_path):
     extlist = ['rtf', 'prm', 'str']

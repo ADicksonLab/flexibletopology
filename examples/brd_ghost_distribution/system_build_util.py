@@ -21,7 +21,7 @@ class SystemBuild(object):
     """
 
     def __init__(self, psf=None, crd=None, pdb=None, target_pkl=None, n_ghosts=None, toppar_str=None, inputs_path=None,
-                 ani_model=None, width=None, binding_site_idxs=None, min_dist=0.15, ep_convert=None,
+                 ani_model=None, width=None, binding_site_idxs=None, min_dist=0.15, gg_min_dist=0.05,
                  sf_weights=None, gg_group=None, mlforce_group=None, sg_group=None, mlforce_scale=None,
                  ghost_mass=None,attr_bounds=None,assignFreq=None,rmax_delta=None, rest_k=None, contForce=None):
 
@@ -50,7 +50,6 @@ class SystemBuild(object):
         self.ani_model = ani_model
         self.width = width
         self.binding_site_idxs = binding_site_idxs
-        self.ep_convert = ep_convert
         self.sf_weights = sf_weights
         self.gg_group = gg_group
         self.mlforce_group = mlforce_group
@@ -59,6 +58,7 @@ class SystemBuild(object):
         self.ghost_mass = ghost_mass
         self.attr_bounds = attr_bounds
         self.min_dist = min_dist
+        self.gg_min_dist = gg_min_dist
         self.assignFreq = assignFreq
         self.rmax_delta = rmax_delta
         self.rest_k = rest_k
@@ -82,11 +82,11 @@ class SystemBuild(object):
 
         return bond_idxs, bond_dists
 
-    def getParameters(self, sim, n_ghosts):
+    def getParameters(self, sim):
 
         pars = sim.context.getParameters()
-        par_array = np.zeros((n_ghosts,5))
-        for i in range(n_ghosts):
+        par_array = np.zeros((self.n_ghosts,5))
+        for i in range(self.n_ghosts):
             tmp_charge = pars[f'charge_g{i}']
             tmp_sigma = pars[f'sigma_g{i}']
             tmp_epsilon = pars[f'epsilon_g{i}']
@@ -96,7 +96,7 @@ class SystemBuild(object):
 
         return par_array
 
-    def init_positions(self, COM_BS, WIDTH, n_ghosts, min_dist, pdb_pos):
+    def init_positions(self, COM_BS, WIDTH, pdb_pos):
 
         rand_positions = []
 
@@ -105,10 +105,10 @@ class SystemBuild(object):
             r_pos = np.random.uniform(low=-WIDTH, high=WIDTH,size=(1, 3))
             r_pos = r_pos+COM_BS
             dists = np.linalg.norm(np.concatenate(pdb_pos) - r_pos, axis=1)
-            if np.all(dists > min_dist):
+            if np.all(dists > self.min_dist):
                 rand_positions.append(r_pos)
 
-        while len(rand_positions) < n_ghosts:
+        while len(rand_positions) < self.n_ghosts:
 
             r_pos = np.random.uniform(low=-WIDTH, high=WIDTH,size=(1, 3))
             r_pos = r_pos+COM_BS
@@ -116,7 +116,7 @@ class SystemBuild(object):
             dists_pdb = np.linalg.norm(np.concatenate(pdb_pos) - r_pos, axis=1)
             dists_gho = np.linalg.norm(np.concatenate(rand_positions) - r_pos, axis=1)
 
-            if np.all(dists_pdb > min_dist) and np.all(dists_gho > min_dist):
+            if np.all(dists_pdb > self.min_dist) and np.all(dists_gho > self.gg_min_dist):
                 rand_positions.append(r_pos)
 
         return np.concatenate(rand_positions)
@@ -137,16 +137,16 @@ class SystemBuild(object):
 
         return COM_BS
 
-    def generate_init_signals(self, n_ghosts):
+    def generate_init_signals(self):
 
-        initial_signals = np.zeros((n_ghosts, 4))
+        initial_signals = np.zeros((self.n_ghosts, 4))
         for idx, value in enumerate(self.attr_bounds.values()):
             initial_signals[:, idx] = np.random.uniform(
-                low=value[0], high=value[1], size=(n_ghosts))
+                low=value[0], high=value[1], size=(self.n_ghosts))
     
         # set total charge to zero
         total_charge = initial_signals[:, 0].sum()
-        initial_signals[:, 0] -= total_charge/n_ghosts
+        initial_signals[:, 0] -= total_charge/self.n_ghosts
         initial_signals[:, -1] = 0.7 # Do we need this??
 
         return initial_signals
@@ -175,14 +175,14 @@ class SystemBuild(object):
         return system
 
 
-    def add_custom_cbf(self, pdb, system, group_num, n_ghosts, ghost_particle_idxs, anchor_idxs):
+    def add_custom_cbf(self, pdb, system, group_num, ghost_particle_idxs, anchor_idxs):
 
         cbf = omm.CustomCentroidBondForce(2, "0.5*k*step(distance(g1,g2) - d0)*(distance(g1,g2) - d0)^2")
         cbf.addGlobalParameter('k', 1000) 
         cbf.addGlobalParameter('d0', 0.4) # it was 0.8
         
         anchor_grp_idx = cbf.addGroup(anchor_idxs)
-        for gh_idx in range(n_ghosts):
+        for gh_idx in range(self.n_ghosts):
             gh_grp_idx = cbf.addGroup([ghost_particle_idxs[gh_idx]])
             cbf.addBond([anchor_grp_idx, gh_grp_idx])
 
@@ -195,17 +195,16 @@ class SystemBuild(object):
 
         if self.target_pkl is not None:
             target_pos, target_signals, target_features = self.read_target_mol_info(self.target_pkl)
-            n_ghosts = target_pos.shape[0]
+            self.n_ghosts = target_pos.shape[0]
         else:
-            n_ghosts = self.n_ghosts
             target_features = None
             
-        initial_signals = self.generate_init_signals(n_ghosts)
+        initial_signals = self.generate_init_signals()
 
         com_bs = self.generate_COM(self.binding_site_idxs, self.pdb)
         pos_arr = np.array(self.crd.positions.value_in_unit(unit.nanometers))
         pdb_pos = np.array([pos_arr])
-        init_positions = self.init_positions(com_bs, self.width, n_ghosts, self.min_dist, pdb_pos)
+        init_positions = self.init_positions(com_bs, self.width, pdb_pos)
         
         # calculating box length
         box_lengths = pos_arr.max(axis=0) - pos_arr.min(axis=0)
@@ -231,17 +230,17 @@ class SystemBuild(object):
         sys_nb_params = nb_params_from_charmm_psf(self.psf)
 
         # adding ghost particles to the system
-        for i in range(n_ghosts):
+        for i in range(self.n_ghosts):
             system.addParticle(self.ghost_mass)
             self.psf.topology.addAtom('G{0}'.format(i),
                              omma.Element.getBySymbol('Ar'),
                              psf_ghost_res,
                              'G{0}'.format(i))
 
-        system, exclusion_list = add_ghosts_to_nb_forces(system, n_ghosts, n_part_system)
+        system, exclusion_list = add_ghosts_to_nb_forces(system, self.n_ghosts, n_part_system)
 
         # indices of ghost particles in the topology
-        ghost_particle_idxs = list(range(n_part_system,(n_part_system+n_ghosts)))
+        ghost_particle_idxs = list(range(n_part_system,(n_part_system+self.n_ghosts)))
         
         # add the mlforce, ccbf, gs_force to the system
         if self.contforce is not None:
@@ -250,11 +249,11 @@ class SystemBuild(object):
         if self.target_pkl is not None:
             system = self.add_mlforce(system, ghost_particle_idxs, target_features)
             
-        system = self.add_custom_cbf(self.pdb, system, self.gg_group, n_ghosts, ghost_particle_idxs, self.binding_site_idxs)
-        system = add_gs_force(system, n_ghosts=n_ghosts, n_part_system=n_part_system, initial_signals=initial_signals,
-                                   sys_params=sys_nb_params, exclusion_list=exclusion_list)
+        system = self.add_custom_cbf(self.pdb, system, self.gg_group, ghost_particle_idxs, self.binding_site_idxs)
+        system = add_gs_force(system, n_ghosts=self.n_ghosts, n_part_system=n_part_system, initial_signals=initial_signals, group_num=self.sg_group,
+                                   sys_params=sys_nb_params, nb_exclusion_list=exclusion_list)
 
-        return system, initial_signals, n_ghosts, self.psf.topology, self.crd.positions, target_features
+        return system, initial_signals, self.n_ghosts, self.psf.topology, self.crd.positions, target_features
 
 
         

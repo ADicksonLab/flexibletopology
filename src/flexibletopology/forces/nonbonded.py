@@ -34,7 +34,7 @@ def add_gs_force(system,
         # adding the systems params to the force
         for p_idx in range(n_part_system):
             gs_force.addParticle(
-                [sys_charge[p_idx], sys_sigma[p_idx], sys_epsilon[p_idx]])
+                [sys_params['charge'][p_idx], sys_params['sigma'][p_idx], sys_params['epsilon'][p_idx]])
 
         # for each force term you need to add ALL the particles even
         # though we only use one of them!
@@ -47,8 +47,8 @@ def add_gs_force(system,
                                      set([n_part_system + gh_idx]))
 
 
-        for j in range(len(exclusion_list)):
-            gs_force.addExclusion(exclusion_list[j][0], exclusion_list[j][1])
+        for j in range(len(nb_exclusion_list)):
+            gs_force.addExclusion(nb_exclusion_list[j][0], nb_exclusion_list[j][1])
 
         # set force parameters
         gs_force.setForceGroup(group_num)
