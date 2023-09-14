@@ -237,6 +237,7 @@ class SystemBuild(object):
                              psf_ghost_res,
                              'G{0}'.format(i))
 
+        print("Adding ghosts to nb forces")
         system, exclusion_list = add_ghosts_to_nb_forces(system, self.n_ghosts, n_part_system)
 
         # indices of ghost particles in the topology

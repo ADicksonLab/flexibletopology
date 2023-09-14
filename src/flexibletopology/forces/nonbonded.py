@@ -64,6 +64,7 @@ def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
     cnb_forces = []
 
     exclusion_list = []
+
     for force in system.getForces():
         if force.__class__.__name__ == 'NonbondedForce':
             for idx in range(n_ghosts):
@@ -71,9 +72,8 @@ def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
                                      0.2, #sigma (nm)  (minimum distance between ghosts)  [not used currently.  add exceptions to use this for g-g interactions?]
                                      0.0) #epsilon (kJ/mol)
             exclusion_list=[]
-            print(f"Non-bonded force: {force.getNumExceptions()} exceptions")
             for i in range(force.getNumExceptions()):
-                particles = (nb_force.getExceptionParameters(i)[0],nb_force.getExceptionParameters(i)[1])
+                particles = (force.getExceptionParameters(i)[0],force.getExceptionParameters(i)[1])
                 exclusion_list.append(particles)
 
 
@@ -83,7 +83,5 @@ def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
             force.addInteractionGroup(set(range(n_part_system)),
                                       set(range(n_part_system)))
 
-            print(f"Custom non-bonded force: {force.getNumExclusions()} exclusions")
 
-
-        return system, exclusion_list
+    return system, exclusion_list
