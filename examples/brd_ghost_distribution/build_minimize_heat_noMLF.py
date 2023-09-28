@@ -84,12 +84,11 @@ pdb_file = mdj.load_pdb(SYSTEM_PDB)
 pos_arr = np.array(crd.positions.value_in_unit(unit.nanometers))
 
 # MD simulations settings
-#TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
-TEMPERATURES = [10, 20, 50]
+TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.002*unit.picoseconds
 NUM_STEPS = [10000 for t in TEMPERATURES]
-#NUM_STEPS[-1] = 1000000
+NUM_STEPS[-1] = 1000000
 
 GHOST_MASS = 12 # AMU
 REPORT_STEPS = 2000
@@ -158,10 +157,6 @@ if __name__ == '__main__':
     print('Building the system..')
     system, initial_signals, n_ghosts, psf_top, crd_pos, _ = BUILD_UTILS.build_system_forces()
 
-    tmp = crd_pos[gst_idxs[0]]
-    crd_pos[gst_idxs[0]] = crd_pos[gst_idxs[-1]]
-    crd_pos[gst_idxs[-1]] = tmp
-    
     print('System built')
         
     coeffs = {'lambda': rest_coeff,
@@ -207,8 +202,6 @@ if __name__ == '__main__':
 
     for temp_idx, TEMP in enumerate(TEMPERATURES):
         H5REPORTER_FILE = osp.join(OUTPUTS_PATH,f'traj{temp_idx}.h5')
-        # integrator = CustomHybridIntegratorConstCharge(n_ghosts, TEMP*unit.kelvin, FRICTION_COEFFICIENT,
-        #                                                TIMESTEP, attr_fric_coeffs=coeffs, attr_bounds=BOUNDS)
 
         integrator = CustomHybridIntegratorRestrictedChargeVariance(n_ghosts, TEMP*unit.kelvin, FRICTION_COEFFICIENT,
                                                        TIMESTEP, attr_fric_coeffs=coeffs, attr_bounds=BOUNDS)
@@ -216,8 +209,6 @@ if __name__ == '__main__':
 
         # _______________HEAT SYSTEM_______________ #
        
-        
-
         simulation = omma.Simulation(psf_top, system, integrator, platform, prop)
 
         simulation.context.setState(latest_state)
@@ -231,7 +222,6 @@ if __name__ == '__main__':
                                                global_variables=True,
                                                global_variable_forces=True,
                                                groups=systemghost_group, num_ghosts=n_ghosts))
-
         
         simulation.reporters.append(mdj.reporters.DCDReporter(osp.join(OUTPUTS_PATH,
                                                                         f'heating{temp_idx}.dcd'),
