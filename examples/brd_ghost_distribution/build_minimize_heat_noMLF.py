@@ -59,8 +59,9 @@ INPUTS_PATH = './inputs/'
 SYSTEM_PSF = osp.join(INPUTS_PATH, 'brd2_water_trim.psf') # name of psf file 
 SYSTEM_PDB = osp.join(INPUTS_PATH, 'brd_water_trim.pdb')  # name of pdb file
 BS_SELECTION_STRING = "resid 88 29 81 24" # selection of residues where the centroid is the middle of the binding site
-SYSTEM_CONT_FORCE_IDXS = [1380,1381,1382] # These are indices of atoms in the target that will be made to be continuous with the FT atoms
-                                           # (set to empty list if not using)
+#SYSTEM_CONT_FORCE_IDXS = [1380,1381,1382] # These are indices of atoms in the target that will be made to be continuous with the FT atoms
+#                                           # (set to empty list if not using)
+SYSTEM_CONT_FORCE_IDXS = []
 
 sigma_LowerBound = 0.2
 sigma_coeff = 100000.0
@@ -100,6 +101,7 @@ MIN_DIST = 0.05 # nm
 
 # force group values
 ghostghost_group = 29
+ghostghost_nb_group = 30
 systemghost_group = 31
 
 # minimization values
@@ -140,7 +142,7 @@ if __name__ == '__main__':
     gst_idxs = list(range(n_system, n_system+n_ghosts))
     
     con_force = ContForce()
-    con_force.addBond(gst_idxs, len(gst_idxs), 0.18, 10000)
+    con_force.addBond(gst_idxs, len(gst_idxs), 0.25, 10000)
     
     if len(SYSTEM_CONT_FORCE_IDXS) > 0:
         cont_force_idxs = gst_idxs + SYSTEM_CONT_FORCE_IDXS
@@ -150,7 +152,7 @@ if __name__ == '__main__':
                               toppar_str=TOPPAR_STR, inputs_path=INPUTS_PATH,
                               width=WIDTH, binding_site_idxs=bs_idxs,
                               min_dist=MIN_DIST, 
-                              gg_group=ghostghost_group, sg_group=systemghost_group,
+                              gg_group=ghostghost_group, gg_nb_group=ghostghost_nb_group, sg_group=systemghost_group,
                               ghost_mass=GHOST_MASS, attr_bounds=BOUNDS,
                               contForce=con_force)
     
@@ -220,7 +222,7 @@ if __name__ == '__main__':
                                                velocities=False,
                                                assignments=False,
                                                global_variables=True,
-                                               global_variable_forces=True,
+                                               global_variable_forces=False,
                                                groups=systemghost_group, num_ghosts=n_ghosts))
         
         simulation.reporters.append(mdj.reporters.DCDReporter(osp.join(OUTPUTS_PATH,

@@ -75,7 +75,7 @@ params = read_params(TOPPAR_STR, INPUTS_PATH)
 
 GHOST_MASS = 12 # AMU
 
-def testAttrForce(platform, prop):
+def testAttrForce(platform, prop, target=None):
     print("Testing total nonbonded energies:")    
     # step 1: build the two water system without flexible topology; get the nonbonded energies and forces
 
@@ -118,19 +118,9 @@ def testAttrForce(platform, prop):
         for i in range(n_ghosts):
             k = f'{attr}_g{i}'
             print(k,par_derivs[k])
+            if target is not None:
+                assert np.abs(target[attr][i] - par_derivs[k]) < TOL
     
-    simulation.step(1)
-    pars = simulation.context.getParameters()
-
-    print("Attr forces:")
-    for attr in ['charge','epsilon','sigma','lambda']:
-        for i in range(n_ghosts):
-            k = f'f{attr}_g{i}'
-            k2 = f'{attr}_g{i}'
-            print(k,pars[k])
-            assert pars[k] + par_derivs[k2] < TOL
-
-
     # get attr forces of system again to show reproducability
     system = psf.createSystem(params,
                               nonbondedMethod=omma.forcefield.CutoffPeriodic,
@@ -159,7 +149,7 @@ def testAttrForce(platform, prop):
         for i in range(n_ghosts):
             k = f'{attr}_g{i}'
             print(k,par_derivs_dup[k])
-            assert par_derivs_dup[k] - par_derivs[k] < TOL
+            assert np.abs(par_derivs_dup[k] - par_derivs[k]) < TOL
 
     # swap positions of gh1 and gh2
     # get attr forces for swapped system
@@ -196,18 +186,7 @@ def testAttrForce(platform, prop):
             k = f'{attr}_g{swap_idxs[i]}'
             ki = f'{attr}_g{i}'
             print(k,par_derivs_swap[k])
-            assert par_derivs_swap[k] - par_derivs[ki] < TOL
-
-    simulation.step(1)
-    pars_swap = simulation.context.getParameters()
-
-    print("Attr forces (swap):")
-    for attr in ['charge','epsilon','sigma','lambda']:
-        for i in range(n_ghosts):
-            k = f'f{attr}_g{swap_idxs[i]}'
-            ki = f'f{attr}_g{i}'
-            print(k,pars_swap[k])
-            assert pars_swap[k] - pars[ki] < TOL
+            assert np.abs(par_derivs_swap[k] - par_derivs[ki]) < TOL
             
 def calc_attr_force_by_hand():
     crd = omma.PDBFile(PDB['two_water'])
@@ -225,16 +204,18 @@ def calc_attr_force_by_hand():
 
     pos = np.array(crd.positions.value_in_unit(unit.nanometer))
     f = {}
-    f['lambda'] = [-calc_flambda(i,pos,sys_nb_params) for i in range(3)]
-    f['sigma'] = [0,0,0]# [calc_fsigma(i,pos,sys_nb_params) for i in range(3)]
-    f['charge'] = [-calc_fcharge(i,pos,sys_nb_params) for i in range(3)]
-    f['epsilon'] = [0,0,0] # [calc_fepsilon(i,pos,sys_nb_params) for i in range(3)]
+    f['lambda'] = [calc_flambda(i,pos,sys_nb_params) for i in range(3)]
+    f['sigma'] = [calc_fsigma(i,pos,sys_nb_params) for i in range(3)]
+    f['charge'] = [calc_fcharge(i,pos,sys_nb_params) for i in range(3)]
+    f['epsilon'] = [calc_fepsilon(i,pos,sys_nb_params) for i in range(3)]
 
     print("Attr forces (by hand):")
     for attr in ['charge','epsilon','sigma','lambda']:
         for i in range(3):
             k = f'f{attr}_g{i}'
             print(k,f[attr][i])
+
+    return f
             
 def calc_flambda(i,pos,sys_nb_params):
     res = 0
@@ -246,6 +227,30 @@ def calc_flambda(i,pos,sys_nb_params):
         sor12 = sor6**2
         
         res += 4.0*epstot*(sor12-sor6)+138.935456*sys_nb_params['charge'][j]*sys_nb_params['charge'][i]/r
+    return res
+
+def calc_fsigma(i,pos,sys_nb_params):
+    res = 0
+    for j in range(3):
+        r = np.sqrt(np.sum(np.square(pos[i+3]-pos[j])))
+        epstot = np.sqrt(sys_nb_params['epsilon'][j]*sys_nb_params['epsilon'][i])
+        sigma= 0.5*(sys_nb_params['sigma'][j] + sys_nb_params['sigma'][i])
+        sor6 = (sigma/r)**6
+        sor12 = sor6**2
+        
+        res += 12.0*epstot*(2*sor12-sor6)/sigma
+    return res
+
+def calc_fepsilon(i,pos,sys_nb_params):
+    res = 0
+    for j in range(3):
+        r = np.sqrt(np.sum(np.square(pos[i+3]-pos[j])))
+        epstot = np.sqrt(sys_nb_params['epsilon'][j]*sys_nb_params['epsilon'][i])
+        sigma= 0.5*(sys_nb_params['sigma'][j] + sys_nb_params['sigma'][i])
+        sor6 = (sigma/r)**6
+        sor12 = sor6**2
+        
+        res += 2.0*(sor12-sor6)/epstot*sys_nb_params['epsilon'][j]
     return res
 
 def calc_fcharge(i,pos,sys_nb_params):
@@ -270,7 +275,7 @@ if __name__ == "__main__":
         prop = {}
         platform = omm.Platform.getPlatformByName('Reference')
 
-    calc_attr_force_by_hand()
-    testAttrForce(platform,prop)
+    f = calc_attr_force_by_hand()
+    testAttrForce(platform,prop,target=f)
     
     print("PASSED all tests")

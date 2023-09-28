@@ -11,7 +11,7 @@ import openmm.unit as unit
 
 from flexibletopology.utils.openmmutils import read_params, nb_params_from_charmm_psf, add_ghosts_to_system
 from flexibletopology.utils.initialize import gen_init_attr, gen_init_pos
-from flexibletopology.forces.nonbonded import add_gs_force, add_ghosts_to_nb_forces
+from flexibletopology.forces.nonbonded import add_gs_force, add_ghosts_to_nb_forces, add_gg_nb_force
 
 import sys
     
@@ -23,7 +23,7 @@ class SystemBuild(object):
 
     def __init__(self, psf=None, crd=None, pdb=None, target_pkl=None, n_ghosts=None, toppar_str=None, inputs_path=None,
                  ani_model=None, width=None, binding_site_idxs=None, min_dist=0.15, gg_min_dist=0.05,
-                 sf_weights=None, gg_group=None, mlforce_group=None, sg_group=None, mlforce_scale=None,
+                 sf_weights=None, gg_group=None, gg_nb_group=None, mlforce_group=None, sg_group=None, mlforce_scale=None,
                  ghost_mass=None,attr_bounds=None,assignFreq=None,rmax_delta=None, rest_k=None, contForce=None):
 
         self.psf = psf
@@ -53,6 +53,7 @@ class SystemBuild(object):
         self.binding_site_idxs = binding_site_idxs
         self.sf_weights = sf_weights
         self.gg_group = gg_group
+        self.gg_nb_group = gg_nb_group
         self.mlforce_group = mlforce_group
         self.sg_group = sg_group
         self.mlforce_scale = mlforce_scale
@@ -186,9 +187,21 @@ class SystemBuild(object):
             system = self.add_mlforce(system, ghost_particle_idxs, target_features)
             
         system = self.add_custom_cbf(self.pdb, system, self.gg_group, ghost_particle_idxs, self.binding_site_idxs)
-        system = add_gs_force(system, n_ghosts=self.n_ghosts, n_part_system=n_part_system, initial_attr=init_attr, group_num=self.sg_group,
-                                   sys_attr=sys_nb_params, nb_exclusion_list=exclusion_list)
+        system = add_gs_force(system,
+                              n_ghosts=self.n_ghosts,
+                              n_part_system=n_part_system,
+                              initial_attr=init_attr,
+                              group_num=self.sg_group,
+                              sys_attr=sys_nb_params,
+                              nb_exclusion_list=exclusion_list)
 
+        system = add_gg_nb_force(system,
+                                 n_ghosts=self.n_ghosts,
+                                 n_part_system=n_part_system,
+                                 group_num=self.gg_nb_group,
+                                 initial_sigmas=init_attr['sigma'],
+                                 nb_exclusion_list=exclusion_list)
+    
         return system, init_attr, self.n_ghosts, new_psf.topology, self.crd.positions, target_features
 
 
