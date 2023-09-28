@@ -4,25 +4,30 @@ def add_gs_force(system,
                  n_ghosts=None,
                  n_part_system=None,
                  group_num=None,
-                 initial_signals=None,
-                 sys_params=None,
+                 initial_attr=None,
+                 sys_attr=None,
                  nb_exclusion_list=None):
 
     for gh_idx in range(n_ghosts):
-        energy_function = f'lambda_g{gh_idx}*epsilon*(sor12-sor6)+138.935456*lambda_g{gh_idx}*charge1*charge2*charge_g{gh_idx}/r;'
-        energy_function += 'sor12 = sor6^2; sor6 = (sigma/r)^6;'
-        energy_function += f'sigma = 0.5*(sigma1+sigma2+sigma_g{gh_idx}); epsilon = sqrt(epsilon1*epsilon2*epsilon_g{gh_idx})'
+        energy_function = f'lambda_g{gh_idx}*(4.0*epstot*(sor12-sor6)+138.935456*q1*charge_g{gh_idx}/r);'
+        energy_function += 'sor12 = sor6^2; sor6 = (sigtot/r)^6;'
+        energy_function += f'sigtot = 0.5*(sigma1+sigma_g{gh_idx}); epstot = sqrt(epsilon1*epsilon_g{gh_idx})'
         gs_force = omm.CustomNonbondedForce(energy_function)
 
-        gs_force.addPerParticleParameter('charge')
+        gs_force.addPerParticleParameter('q')
         gs_force.addPerParticleParameter('sigma')
         gs_force.addPerParticleParameter('epsilon')
             
         # set to initial values
-        gs_force.addGlobalParameter(f'charge_g{gh_idx}', initial_signals[gh_idx, 0])
-        gs_force.addGlobalParameter(f'sigma_g{gh_idx}', initial_signals[gh_idx, 1])
-        gs_force.addGlobalParameter(f'epsilon_g{gh_idx}', initial_signals[gh_idx, 2])
-        gs_force.addGlobalParameter(f'lambda_g{gh_idx}', initial_signals[gh_idx, 3])
+        gs_force.addGlobalParameter(f'charge_g{gh_idx}', initial_attr['charge'][gh_idx])
+        gs_force.addGlobalParameter(f'sigma_g{gh_idx}', initial_attr['sigma'][gh_idx])
+        gs_force.addGlobalParameter(f'epsilon_g{gh_idx}', initial_attr['epsilon'][gh_idx])
+        gs_force.addGlobalParameter(f'lambda_g{gh_idx}', initial_attr['lambda'][gh_idx])
+        gs_force.addGlobalParameter(f'fcharge_g{gh_idx}', 0.0)
+        gs_force.addGlobalParameter(f'fsigma_g{gh_idx}', 0.0)
+        gs_force.addGlobalParameter(f'fepsilon_g{gh_idx}', 0.0)
+        gs_force.addGlobalParameter(f'flambda_g{gh_idx}', 0.0)
+
         gs_force.addGlobalParameter(f'assignment_g{gh_idx}', 0)
 
         # adding the del(signal)s [needed in the integrator]
@@ -34,7 +39,7 @@ def add_gs_force(system,
         # adding the systems params to the force
         for p_idx in range(n_part_system):
             gs_force.addParticle(
-                [sys_params['charge'][p_idx], sys_params['sigma'][p_idx], sys_params['epsilon'][p_idx]])
+                [sys_attr['charge'][p_idx], sys_attr['sigma'][p_idx], sys_attr['epsilon'][p_idx]])
 
         # for each force term you need to add ALL the particles even
         # though we only use one of them!

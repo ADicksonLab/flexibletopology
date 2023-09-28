@@ -9,7 +9,8 @@ import openmm.app as omma
 import openmm as omm
 import openmm.unit as unit
 
-from flexibletopology.utils.openmmutils import read_params, nb_params_from_charmm_psf
+from flexibletopology.utils.openmmutils import read_params, nb_params_from_charmm_psf, add_ghosts_to_system
+from flexibletopology.utils.initialize import gen_init_attr, gen_init_pos
 from flexibletopology.forces.nonbonded import add_gs_force, add_ghosts_to_nb_forces
 
 import sys
@@ -82,46 +83,6 @@ class SystemBuild(object):
 
         return bond_idxs, bond_dists
 
-    def getParameters(self, sim):
-
-        pars = sim.context.getParameters()
-        par_array = np.zeros((self.n_ghosts,5))
-        for i in range(self.n_ghosts):
-            tmp_charge = pars[f'charge_g{i}']
-            tmp_sigma = pars[f'sigma_g{i}']
-            tmp_epsilon = pars[f'epsilon_g{i}']
-            tmp_lambda = pars[f'lambda_g{i}']
-            tmp_assign = pars[f'assignment_g{i}']
-            par_array[i] = np.array([tmp_charge,tmp_sigma,tmp_epsilon,tmp_lambda,tmp_assign])
-
-        return par_array
-
-    def init_positions(self, COM_BS, WIDTH, pdb_pos):
-
-        rand_positions = []
-
-        while len(rand_positions) < 1:
-
-            r_pos = np.random.uniform(low=-WIDTH, high=WIDTH,size=(1, 3))
-            r_pos = r_pos+COM_BS
-            dists = np.linalg.norm(np.concatenate(pdb_pos) - r_pos, axis=1)
-            if np.all(dists > self.min_dist):
-                rand_positions.append(r_pos)
-
-        while len(rand_positions) < self.n_ghosts:
-
-            r_pos = np.random.uniform(low=-WIDTH, high=WIDTH,size=(1, 3))
-            r_pos = r_pos+COM_BS
-
-            dists_pdb = np.linalg.norm(np.concatenate(pdb_pos) - r_pos, axis=1)
-            dists_gho = np.linalg.norm(np.concatenate(rand_positions) - r_pos, axis=1)
-
-            if np.all(dists_pdb > self.min_dist) and np.all(dists_gho > self.gg_min_dist):
-                rand_positions.append(r_pos)
-
-        return np.concatenate(rand_positions)
-
-
     def read_target_mol_info(self, mol_file_name):
 
         with open(mol_file_name, 'rb') as pklf:
@@ -136,20 +97,6 @@ class SystemBuild(object):
         COM_BS = np.mean(idxs_pos, axis=0)
 
         return COM_BS
-
-    def generate_init_signals(self):
-
-        initial_signals = np.zeros((self.n_ghosts, 4))
-        for idx, value in enumerate(self.attr_bounds.values()):
-            initial_signals[:, idx] = np.random.uniform(
-                low=value[0], high=value[1], size=(self.n_ghosts))
-    
-        # set total charge to zero
-        total_charge = initial_signals[:, 0].sum()
-        initial_signals[:, 0] -= total_charge/self.n_ghosts
-        initial_signals[:, -1] = 0.7 # Do we need this??
-
-        return initial_signals
 
     def add_mlforce(self, system, ghost_particle_idxs, target_features):
 
@@ -199,12 +146,12 @@ class SystemBuild(object):
         else:
             target_features = None
             
-        initial_signals = self.generate_init_signals()
+        init_attr = gen_init_attr(self.n_ghosts, self.attr_bounds,total_charge=0,init_lambda=1.0)
 
         com_bs = self.generate_COM(self.binding_site_idxs, self.pdb)
         pos_arr = np.array(self.crd.positions.value_in_unit(unit.nanometers))
         pdb_pos = np.array([pos_arr])
-        init_positions = self.init_positions(com_bs, self.width, pdb_pos)
+        init_positions = gen_init_pos(self.n_ghosts, com_bs, self.width, pdb_pos, self.min_dist, self.gg_min_dist)
         
         # calculating box length
         box_lengths = pos_arr.max(axis=0) - pos_arr.min(axis=0)
@@ -222,20 +169,8 @@ class SystemBuild(object):
                                   nonbondedCutoff=1*unit.nanometers,
                                   constraints=omma.forcefield.HBonds)
 
-        
-        psf_ghost_chain = self.psf.topology.addChain(id='G')
-        psf_ghost_res = self.psf.topology.addResidue('ghosts',
-                                                psf_ghost_chain)
-        
         sys_nb_params = nb_params_from_charmm_psf(self.psf)
-
-        # adding ghost particles to the system
-        for i in range(self.n_ghosts):
-            system.addParticle(self.ghost_mass)
-            self.psf.topology.addAtom('G{0}'.format(i),
-                             omma.Element.getBySymbol('Ar'),
-                             psf_ghost_res,
-                             'G{0}'.format(i))
+        system, new_psf = add_ghosts_to_system(system, self.psf, self.n_ghosts, self.ghost_mass)
 
         print("Adding ghosts to nb forces")
         system, exclusion_list = add_ghosts_to_nb_forces(system, self.n_ghosts, n_part_system)
@@ -251,10 +186,10 @@ class SystemBuild(object):
             system = self.add_mlforce(system, ghost_particle_idxs, target_features)
             
         system = self.add_custom_cbf(self.pdb, system, self.gg_group, ghost_particle_idxs, self.binding_site_idxs)
-        system = add_gs_force(system, n_ghosts=self.n_ghosts, n_part_system=n_part_system, initial_signals=initial_signals, group_num=self.sg_group,
-                                   sys_params=sys_nb_params, nb_exclusion_list=exclusion_list)
+        system = add_gs_force(system, n_ghosts=self.n_ghosts, n_part_system=n_part_system, initial_attr=init_attr, group_num=self.sg_group,
+                                   sys_attr=sys_nb_params, nb_exclusion_list=exclusion_list)
 
-        return system, initial_signals, self.n_ghosts, self.psf.topology, self.crd.positions, target_features
+        return system, init_attr, self.n_ghosts, new_psf.topology, self.crd.positions, target_features
 
 
         

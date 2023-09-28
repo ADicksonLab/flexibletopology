@@ -17,7 +17,7 @@ import sys
 from flexibletopology.utils.integrators import CustomHybridIntegratorRestrictedChargeVariance
 
 from flexibletopology.utils.reporters import H5Reporter
-from flexibletopology.utils.openmmutils import read_params
+from flexibletopology.utils.openmmutils import read_params, getParameters, setParameters
 import sys
 
 from contforceplugin import ContForce
@@ -84,11 +84,12 @@ pdb_file = mdj.load_pdb(SYSTEM_PDB)
 pos_arr = np.array(crd.positions.value_in_unit(unit.nanometers))
 
 # MD simulations settings
-TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
+#TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
+TEMPERATURES = [10, 20, 50]
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.002*unit.picoseconds
 NUM_STEPS = [10000 for t in TEMPERATURES]
-NUM_STEPS[-1] = 1000000
+#NUM_STEPS[-1] = 1000000
 
 GHOST_MASS = 12 # AMU
 REPORT_STEPS = 2000
@@ -157,6 +158,9 @@ if __name__ == '__main__':
     print('Building the system..')
     system, initial_signals, n_ghosts, psf_top, crd_pos, _ = BUILD_UTILS.build_system_forces()
 
+    tmp = crd_pos[gst_idxs[0]]
+    crd_pos[gst_idxs[0]] = crd_pos[gst_idxs[-1]]
+    crd_pos[gst_idxs[-1]] = tmp
     
     print('System built')
         
@@ -169,7 +173,7 @@ if __name__ == '__main__':
    
     integrator = CustomHybridIntegratorRestrictedChargeVariance(n_ghosts, TEMPERATURES[0], FRICTION_COEFFICIENT,
                                                 TIMESTEP, attr_fric_coeffs=coeffs, attr_bounds=BOUNDS)
-                                                   
+
     simulation = omma.Simulation(psf_top, system, integrator, platform, prop)
 
     simulation.context.setPositions(crd_pos)
@@ -179,7 +183,7 @@ if __name__ == '__main__':
         os.makedirs(OUTPUTS_PATH)
 
     pre_min_positions = simulation.context.getState(getPositions=True).getPositions()
-    omma.PDBFile.writeFile(psf_top, pre_min_positions, open(osp.join(OUTPUTS_PATH,'struct_before_min.pdb'), 'w'))
+    omma.PDBFile.writeFile(psf.topology, pre_min_positions, open(osp.join(OUTPUTS_PATH,'struct_before_min.pdb'), 'w'))
 
     #_______________MINIMIZE_______________#
     print('Running minimization')
@@ -191,6 +195,7 @@ if __name__ == '__main__':
 
     # save a PDB of the minimized positions
     latest_state = simulation.context.getState(getPositions=True)
+    latest_par = getParameters(simulation, n_ghosts)
 
     omma.PDBFile.writeFile(psf_top, latest_state.getPositions(), open(osp.join(OUTPUTS_PATH,f'minimized_pos.pdb'),'w'))
 
@@ -216,11 +221,15 @@ if __name__ == '__main__':
         simulation = omma.Simulation(psf_top, system, integrator, platform, prop)
 
         simulation.context.setState(latest_state)
-
+        setParameters(simulation, latest_par)
+        
         simulation.reporters.append(H5Reporter(H5REPORTER_FILE,
                                                reportInterval=REPORT_STEPS,
                                                coordinates=False,
+                                               velocities=False,
                                                assignments=False,
+                                               global_variables=True,
+                                               global_variable_forces=True,
                                                groups=systemghost_group, num_ghosts=n_ghosts))
 
         
@@ -235,7 +244,8 @@ if __name__ == '__main__':
                                                            temperature=True))
 
         simulation.step(NUM_STEPS[temp_idx])
-        
+
+        latest_par = getParameters(simulation, n_ghosts)    
         latest_state = simulation.context.getState(getPositions=True)
 
     end = time.time()
@@ -263,7 +273,7 @@ if __name__ == '__main__':
         pkl.dump(final_pos, new_file)
     print(" n_ghosts",  n_ghosts)
 
-    par = BUILD_UTILS.getParameters(simulation, n_ghosts)
+    par = getParameters(simulation, n_ghosts)
     print("parameters: ", par)
     
     with open(osp.join(OUTPUTS_PATH, 'parameters.pkl'), 'wb') as new_file:
