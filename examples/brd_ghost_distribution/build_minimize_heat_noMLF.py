@@ -159,6 +159,11 @@ if __name__ == '__main__':
     print('Building the system..')
     system, initial_signals, n_ghosts, psf_top, crd_pos, _ = BUILD_UTILS.build_system_forces()
 
+    pressure = 1.0*unit.atmospheres
+    temp = 300*unit.kelvin
+    barostat = omm.MonteCarloBarostat(pressure, temp)
+    system.addForce(barostat)
+    
     print('System built')
         
     coeffs = {'lambda': rest_coeff,

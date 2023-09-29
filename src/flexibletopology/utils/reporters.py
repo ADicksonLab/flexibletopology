@@ -177,12 +177,12 @@ class H5Reporter(object):
                                             np.array(gvalues))
 
         if self._global_variable_forces:
+            par_derivs = simulation.context.getState(getParameterDerivatives=True).getEnergyParameterDerivatives()
             for variable_name in self.GLOBAL_VARIABLES:
                 for gh_idx in range(self.num_ghosts):
-                    gvalues = simulation.context.getParameter(
-                        f'f{variable_name}_g{gh_idx}')
+                    gvalues = par_derivs[f'{variable_name}_g{gh_idx}']
                     self._extend_traj_field(f'global_variables/{gh_idx}/f{variable_name}',
-                                            np.array(gvalues))
+                                            -np.array(gvalues))
 
         if self._assignments:
             assign_values = []
