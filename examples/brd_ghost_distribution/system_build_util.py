@@ -11,7 +11,8 @@ import openmm.unit as unit
 
 from flexibletopology.utils.openmmutils import read_params, nb_params_from_charmm_psf, add_ghosts_to_system
 from flexibletopology.utils.initialize import gen_init_attr, gen_init_pos
-from flexibletopology.forces.nonbonded import add_gs_force, add_ghosts_to_nb_forces, add_gg_nb_force
+from flexibletopology.forces.static import add_ghosts_to_nb_forces
+from flexibletopology.forces.dynamic import add_gs_force, add_gg_nb_force
 
 import sys
     

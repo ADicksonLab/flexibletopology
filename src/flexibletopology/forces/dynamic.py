@@ -59,34 +59,6 @@ def add_gs_force(system,
         
     return system
 
-def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
-        
-    nb_forces = []
-    cnb_forces = []
-
-    exclusion_list = []
-
-    for force in system.getForces():
-        if force.__class__.__name__ == 'NonbondedForce':
-            for idx in range(n_ghosts):
-                force.addParticle(0.0, #charge
-                                     1.0, #sigma (nm)
-                                     0.0) #epsilon (kJ/mol)
-            exclusion_list=[]
-            for i in range(force.getNumExceptions()):
-                particles = (force.getExceptionParameters(i)[0],force.getExceptionParameters(i)[1])
-                exclusion_list.append(particles)
-
-
-        if force.__class__.__name__ == 'CustomNonbondedForce':
-            for idx in range(n_ghosts):
-                force.addParticle([0.0])
-            force.addInteractionGroup(set(range(n_part_system)),
-                                      set(range(n_part_system)))
-
-
-    return system, exclusion_list
-
 def add_gg_nb_force(system,
                     n_ghosts=None,
                     n_part_system=None,

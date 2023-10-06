@@ -1,3 +1,4 @@
+from openmm import unit
 import openmm.app as omma
 import numpy as np
 
@@ -16,26 +17,41 @@ def removeFromPSF(psf,idxs_to_remove,verbose=False):
 
     removed_residues = []
     # make a list of residues that are now removed
-    new_res_list = []
+    new_res_list = omma.internal.charmm.topologyobjects.ResidueList()
     
-    for r in psf.residue_list:
-        new_at_list = []
-        for a in r.atoms:
-            if a.idx not in idxs_to_remove:
-                a.idx -= _n_less_than(a.idx,idxs_to_remove)
-                new_at_list.append(a)
-            else:
-                a.idx = -1  # mark it as deleted
-        r.atoms = new_at_list
-        if len(new_at_list) > 0:
-            r.idx -= _n_less_than(r.idx,removed_residues)
-            new_res_list.append(r)
+    for a in psf.atom_list:
+        if a.idx not in idxs_to_remove:
+            a.idx -= _n_less_than(a.idx,idxs_to_remove)
+            new_res_list.add_atom(a.system,
+                                  a.residue.idx,
+                                  a.residue.resname,
+                                  a.name,
+                                  a.attype,
+                                  a.charge,
+                                  a.mass.value_in_unit(unit.amu),
+                                  "")
         else:
-            if verbose: print(f"Removing {r} from residue list")
-            removed_residues.append(r.idx)
+            a.idx = -1 # mark it as deleted
+
+    #
+    #for r in psf.residue_list:
+    #    new_at_list = omma.internal.charmm.topologyobjects.AtomList()
+    #    for a in r.atoms:
+    #        if a.idx not in idxs_to_remove:
+    #            a.idx -= _n_less_than(a.idx,idxs_to_remove)
+    #            new_at_list.append(a)
+    #        else:
+    #            a.idx = -1  
+    #    r.atoms = new_at_list
+    #    if len(new_at_list) > 0:
+    #        r.idx -= _n_less_than(r.idx,removed_residues)
+    #        new_res_list.append(r)
+    #    else:
+    #        if verbose: print(f"Removing {r} from residue list")
+    #        removed_residues.append(r.idx)
             
     # remove atoms from atom list
-    new_atom_list = []
+    new_atom_list = omma.internal.charmm.topologyobjects.AtomList()
     for a in psf.atom_list:
         if a.idx != -1:
             new_atom_list.append(a)
@@ -45,7 +61,7 @@ def removeFromPSF(psf,idxs_to_remove,verbose=False):
     psf.atom_list = new_atom_list
 
     # remove associated bonds from bond list; renumber
-    new_bond_list = []
+    new_bond_list = omma.internal.charmm.topologyobjects.TrackedList()
     for b in psf.bond_list:
         if b.atom1.idx != -1 and b.atom2.idx != -1:
             new_bond_list.append(b)
@@ -55,7 +71,7 @@ def removeFromPSF(psf,idxs_to_remove,verbose=False):
     psf.bond_list = new_bond_list
 
     # remove associated angles from angle list; renumber
-    new_angle_list = []
+    new_angle_list = omma.internal.charmm.topologyobjects.TrackedList()
     for a in psf.angle_list:
         if a.atom1.idx != -1 and a.atom2.idx != -1 and a.atom3.idx != -1:
             new_angle_list.append(a)
@@ -65,7 +81,7 @@ def removeFromPSF(psf,idxs_to_remove,verbose=False):
     psf.angle_list = new_angle_list
 
     # remove associated cmap terms from cmap list; renumber
-    new_cmap_list = []
+    new_cmap_list = omma.internal.charmm.topologyobjects.TrackedList()
     for c in psf.cmap_list:
         if c.atom1.idx != -1 and c.atom2.idx != -1 and c.atom3.idx != -1 and c.atom4.idx != -1 and c.atom5.idx != -1:
             new_cmap_list.append(c)
@@ -75,7 +91,7 @@ def removeFromPSF(psf,idxs_to_remove,verbose=False):
     psf.cmap_list = new_cmap_list
     
     # remove associated dihedral terms from dihedral list; renumber
-    new_dihedral_list = []
+    new_dihedral_list = omma.internal.charmm.topologyobjects.TrackedList()
     for d in psf.dihedral_list:
         if d.atom1.idx != -1 and d.atom2.idx != -1 and d.atom3.idx != -1 and d.atom4.idx != -1:
             new_dihedral_list.append(d)
@@ -85,7 +101,7 @@ def removeFromPSF(psf,idxs_to_remove,verbose=False):
     psf.dihedral_list = new_dihedral_list
 
     # remove associated improper terms from improper list; renumber
-    new_improper_list = []
+    new_improper_list = omma.internal.charmm.topologyobjects.TrackedList()
     for d in psf.improper_list:
         if d.atom1.idx != -1 and d.atom2.idx != -1 and d.atom3.idx != -1 and d.atom4.idx != -1:
             new_improper_list.append(d)
