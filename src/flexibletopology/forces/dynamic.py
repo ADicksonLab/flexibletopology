@@ -64,9 +64,10 @@ def add_gg_nb_force(system,
                     n_part_system=None,
                     group_num=None,
                     initial_sigmas=None,
+                    initial_charges=None,
                     nb_exclusion_list=None):
     
-    energy_function = f'4.0*(sor12-sor6);'
+    energy_function = f'4.0*(sor12-sor6) + 138.935456*q1*q2/r; '
     energy_function += 'sor12 = sor6^2; sor6 = (sigtot/r)^6; '
     energy_function += f'sigtot = 0.5*(sig1+sig2); '
     sig_term1 = 'sig1 = '
@@ -81,13 +82,28 @@ def add_gg_nb_force(system,
         else:
             sig_term1 += '; '
             sig_term2 += '; '
-    energy_function += sig_term1 + sig_term2
+
+    q_term1 = 'q1 = '
+    q_term2 = 'q2 = '
+    
+    for i in range(n_ghosts):
+        q_term1 += f'charge_g{i}*is_par{i}_1'
+        q_term2 += f'charge_g{i}*is_par{i}_2'
+        if i < n_ghosts-1:
+            q_term1 += ' + '
+            q_term2 += ' + '
+        else:
+            q_term1 += '; '
+            q_term2 += '; '
+    
+    energy_function += sig_term1 + sig_term2 + q_term1 + q_term2
 
     gg_force = omm.CustomNonbondedForce(energy_function)
 
     for i in range(n_ghosts):
         gg_force.addPerParticleParameter(f'is_par{i}_')
         gg_force.addGlobalParameter(f'sigma_g{i}', initial_sigmas[i])
+        gg_force.addGlobalParameter(f'charge_g{i}', initial_charges[i])
 
     # make the zero indicator vector for all system atoms
     zero_is_par = [0 for i in range(n_ghosts)]
@@ -104,6 +120,7 @@ def add_gg_nb_force(system,
         gg_force.addParticle(ghost_is_par)
         # adding the del(signal)s [needed in the integrator]
         gg_force.addEnergyParameterDerivative(f'sigma_g{p_idx}')
+        gg_force.addEnergyParameterDerivative(f'charge_g{p_idx}')
 
     # only compute interactions between ghosts
     gg_force.addInteractionGroup(set(range(n_part_system,n_part_system + n_ghosts)),

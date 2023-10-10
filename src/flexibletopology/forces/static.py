@@ -43,8 +43,8 @@ def _modify_charmm_cnb_force(force, n_ghosts):
         func_params = tfunc.getFunctionParameters()
 
         # modify them
-        assert func_params[0] == 38, "Unexpected behavior in CHARMM custom non-bonded force"
-        assert func_params[1] == 38, "Unexpected behavior in CHARMM custom non-bonded force"
+        n_types = func_params[0]
+        assert func_params[0] == func_params[1], "Unexpected behavior in CHARMM custom non-bonded force"
 
         tab_values = np.array(func_params[2]).reshape(func_params[0],func_params[1])
 
@@ -57,7 +57,7 @@ def _modify_charmm_cnb_force(force, n_ghosts):
         tfunc.setFunctionParameters(*func_params)
 
     for idx in range(n_ghosts):
-        force.addParticle([38.0])
+        force.addParticle([float(n_types)])
         
     return force
 
