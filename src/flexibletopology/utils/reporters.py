@@ -20,7 +20,7 @@ class H5Reporter(object):
     def __init__(self, traj_file_path, reportInterval=100, groups=30,
                  num_ghosts=3, time=True, temperature=True,
                  forces=False, potentialEnergy=True, velocities=False,
-                 coordinates=True, global_variables=True, assignments=True):
+                 coordinates=True, global_variables=True, global_variable_forces=False, assignments=True):
         self.traj_file_path = traj_file_path
         self._h5 = None
         self._reportInterval = reportInterval
@@ -33,6 +33,7 @@ class H5Reporter(object):
         self._velocities = bool(velocities)
         self._coordinates = bool(coordinates)
         self._global_variables = bool(global_variables)
+        self._global_variable_forces = bool(global_variable_forces)
         self._assignments = bool(assignments)
         self._temperature = bool(temperature)
 
@@ -77,6 +78,13 @@ class H5Reporter(object):
                 for gh_idx in range(self.num_ghosts):
                     self.h5.create_dataset(f'global_variables/{gh_idx}/{variable_name}', (0, ),
                                            maxshape=(None, ))
+
+        if self._global_variable_forces:
+            for variable_name in self.GLOBAL_VARIABLES:
+                for gh_idx in range(self.num_ghosts):
+                    self.h5.create_dataset(f'global_variables/{gh_idx}/f{variable_name}', (0, ),
+                                           maxshape=(None, ))
+        
         if self._assignments:
             self.h5.create_dataset(f'assignments', (0, 0),
                                    maxshape=(None, self.num_ghosts), dtype=np.int)
@@ -167,6 +175,14 @@ class H5Reporter(object):
                         f'{variable_name}_g{gh_idx}')
                     self._extend_traj_field(f'global_variables/{gh_idx}/{variable_name}',
                                             np.array(gvalues))
+
+        if self._global_variable_forces:
+            par_derivs = simulation.context.getState(getParameterDerivatives=True).getEnergyParameterDerivatives()
+            for variable_name in self.GLOBAL_VARIABLES:
+                for gh_idx in range(self.num_ghosts):
+                    gvalues = par_derivs[f'{variable_name}_g{gh_idx}']
+                    self._extend_traj_field(f'global_variables/{gh_idx}/f{variable_name}',
+                                            -np.array(gvalues))
 
         if self._assignments:
             assign_values = []

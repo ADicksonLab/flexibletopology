@@ -3,6 +3,7 @@ import numpy as np
 from openmm import unit
 import openmm.app as omma
 
+EP_CONVERT= -0.2390057
 
 def read_params(filename, parfiles_path):
     extlist = ['rtf', 'prm', 'str']
@@ -25,17 +26,22 @@ def read_params(filename, parfiles_path):
 def getParameters(sim, n_ghosts):
     pars = sim.context.getParameters()
 
-    par_array = np.zeros((n_ghosts, 4))
-    for i in range(n_ghosts):
-        tmp_lambda = pars[f'lambda_g{i}']
-        tmp_charge = pars[f'charge_g{i}']
-        tmp_sigma = pars[f'sigma_g{i}']
-        tmp_epsilon = pars[f'epsilon_g{i}']
-        par_array[i] = np.array([tmp_lambda, tmp_charge,
-                                 tmp_sigma, tmp_epsilon])
+    par_dict = {}
+    par_dict['lambda'] = np.array([pars[f'lambda_g{i}'] for i in range(n_ghosts)])
+    par_dict['charge'] = np.array([pars[f'charge_g{i}'] for i in range(n_ghosts)])
+    par_dict['sigma'] = np.array([pars[f'sigma_g{i}'] for i in range(n_ghosts)])
+    par_dict['epsilon'] = np.array([pars[f'epsilon_g{i}'] for i in range(n_ghosts)])
+    par_dict['assignment'] = np.array([pars[f'assignment_g{i}'] for i in range(n_ghosts)])
 
-    return par_array
+    return par_dict
 
+def setParameters(sim, par_dict):
+    n_ghosts = len(par_dict['lambda'])
+    for attr in ['lambda','charge','sigma','epsilon','assignment']:
+        for i in range(n_ghosts):
+            sim.context.setParameter(f'{attr}_g{i}',par_dict[attr][i])
+
+    return
 
 def getEnergyComponents(sim, n_ghosts):
     """Gets the energy components from all of the auxiliary forces"""
@@ -81,3 +87,35 @@ def writeBondEnergyString(num_ghosts):
             energy_string += ';'
 
     return energy_string
+
+def nb_params_from_charmm_psf(psf):
+
+    params = {}
+    params['sigma'] = []
+    params['epsilon'] = []
+    params['charge'] = []
+
+    for atom in psf.atom_list:
+        params['charge'].append(atom.charge)         # in units of elementary charge
+
+        half_rmin = atom.type.rmin*0.1         # now in units of nm
+        sigma = half_rmin*2/2**(1/6)
+        params['sigma'].append(sigma)
+        params['epsilon'].append(atom.type.epsilon/EP_CONVERT)          # now a positive number in kJ/mol
+
+    return params
+
+def add_ghosts_to_system(system, psf, n_ghosts, ghost_mass):
+    psf_ghost_chain = psf.topology.addChain(id='G')
+    psf_ghost_res = psf.topology.addResidue('ghosts',
+                                            psf_ghost_chain)
+
+    # adding ghost particles to the system
+    for i in range(n_ghosts):
+        system.addParticle(ghost_mass)
+        psf.topology.addAtom(f'G{i}',
+                             omma.Element.getBySymbol('Ar'),
+                             psf_ghost_res,
+                             f'G{i}')
+
+    return system, psf

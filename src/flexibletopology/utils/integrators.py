@@ -233,7 +233,7 @@ class CustomHybridIntegratorRestrictedChargeVariance(omm.CustomIntegrator):
 
         for parameter_name in self.GLOBAL_PARAMETERS:
             for idx in range(n_ghosts):
-                self.addGlobalVariable(f"f{parameter_name}_g{idx}", 1.0)
+                self.addGlobalVariable(f"f{parameter_name}_g{idx}", 0.0)
 
         # define a global variable for the charge variance
         self.addGlobalVariable("tot_charge", 0.0)

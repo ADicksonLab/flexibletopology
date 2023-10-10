@@ -1,0 +1,13 @@
+REMARK   1 CREATED by Alex Dickson
+MODEL        1
+HETATM    1  OH2 TIP C   1      22.478  33.693  45.461  1.00  0.00           O  
+HETATM    2  H1  TIP C   1      21.681  34.193  45.638  1.00  0.00           H  
+HETATM    3  H2  TIP C   1      22.585  33.131  46.228  1.00  0.00           H  
+HETATM    4  OH2 TIP C   2      23.460  34.190  42.782  1.00  0.00           O  
+HETATM    5  H1  TIP C   2      23.164  33.726  41.999  1.00  0.00           H  
+HETATM    6  H2  TIP C   2      22.915  33.840  43.488  1.00  0.00           H  
+TER       7      TIP C   4
+ENDMDL
+CONECT    1    2    1    3
+CONECT    4    5    4    6
+END
