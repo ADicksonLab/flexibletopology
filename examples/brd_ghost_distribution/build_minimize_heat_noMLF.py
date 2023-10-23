@@ -18,6 +18,8 @@ from flexibletopology.utils.integrators import CustomHybridIntegratorRestrictedC
 
 from flexibletopology.utils.reporters import H5Reporter
 from flexibletopology.utils.openmmutils import read_params, getParameters, setParameters
+from flexibletopology.forces.static import build_protein_restraint_force
+from flexibletopology.attr_minimizer import AttrMinimizer
 import sys
 
 from contforceplugin import ContForce
@@ -85,7 +87,7 @@ pdb_file = mdj.load_pdb(SYSTEM_PDB)
 pos_arr = np.array(crd.positions.value_in_unit(unit.nanometers))
 
 # MD simulations settings
-TEMPERATURES = [10, 20, 50, 100, 150, 200, 250, 300]
+TEMPERATURES = [10, 10, 20, 50, 100, 150, 200, 250, 300]
 FRICTION_COEFFICIENT = 1/unit.picosecond
 TIMESTEP = 0.002*unit.picoseconds
 NUM_STEPS = [10000 for t in TEMPERATURES]
@@ -97,7 +99,7 @@ REPORT_STEPS = 2000
 # system building values
 WIDTH = 0.3 # nm
 # MIN_DIST = 0.04 # nm
-MIN_DIST = 0.05 # nm
+MIN_DIST = 0.2 # nm
 
 # force group values
 ghostghost_group = 29
@@ -136,8 +138,10 @@ if __name__ == '__main__':
     #_______________BUILD SYSTEM & SIMULATION OBJECT_______________#
     
     bs_idxs = pdb_file.topology.select(BS_SELECTION_STRING)
+    prot_idxs = pdb_file.topology.select('protein')
+    bb_idxs = pdb_file.topology.select('protein and backbone')
 
-    print("n_ghosts is ",n_ghosts)
+    print(f"Building a system with {n_ghosts} ghost particles..")
     n_system = pdb_file.n_atoms
     gst_idxs = list(range(n_system, n_system+n_ghosts))
     
@@ -148,23 +152,19 @@ if __name__ == '__main__':
         cont_force_idxs = gst_idxs + SYSTEM_CONT_FORCE_IDXS
         con_force.addBond(cont_force_idxs, len(cont_force_idxs), 0.25, 10000)
 
-    BUILD_UTILS = SystemBuild(psf=psf, crd=crd, pdb=pdb_file, n_ghosts=n_ghosts,
+    BUILD_UTILS = SystemBuild(psf=psf, pos=pos_arr, pdb=pdb_file, n_ghosts=n_ghosts,
                               toppar_str=TOPPAR_STR, inputs_path=INPUTS_PATH,
                               width=WIDTH, binding_site_idxs=bs_idxs,
-                              min_dist=MIN_DIST, 
+                              min_dist=MIN_DIST, gg_min_dist=MIN_DIST,
                               gg_group=ghostghost_group, gg_nb_group=ghostghost_nb_group, sg_group=systemghost_group,
                               ghost_mass=GHOST_MASS, attr_bounds=BOUNDS,
                               contForce=con_force)
     
-    print('Building the system..')
-    system, initial_signals, n_ghosts, psf_top, crd_pos, _ = BUILD_UTILS.build_system_forces()
+    system, initial_signals, n_ghosts, psf_top, pos, _ = BUILD_UTILS.build_system_forces()
 
     pressure = 1.0*unit.atmospheres
     temp = 300*unit.kelvin
-    barostat = omm.MonteCarloBarostat(pressure, temp)
-    system.addForce(barostat)
-    
-    print('System built')
+    barostat = omm.MonteCarloBarostat(pressure, temp)     # add this to the system after heating step 0
         
     coeffs = {'lambda': rest_coeff,
               'charge': rest_coeff,
@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
     simulation = omma.Simulation(psf_top, system, integrator, platform, prop)
 
-    simulation.context.setPositions(crd_pos)
+    simulation.context.setPositions(pos)
 
     # add reporters                                                                     
     if not osp.exists(OUTPUTS_PATH):
@@ -188,26 +188,31 @@ if __name__ == '__main__':
     omma.PDBFile.writeFile(psf.topology, pre_min_positions, open(osp.join(OUTPUTS_PATH,'struct_before_min.pdb'), 'w'))
 
     #_______________MINIMIZE_______________#
-    print('Running minimization')
+    print('Running minimization..')
     print('Before min: E=', simulation.context.getState(getEnergy=True).getPotentialEnergy())
+
+    attr_min = AttrMinimizer(simulation, n_ghosts, BOUNDS)
+    print('old attr:',attr_min.get_attributes())
+    print('new_attr:',attr_min.attr_minimize())
+    print('After attr min: E=', simulation.context.getState(getEnergy=True).getPotentialEnergy())
+    
     begin = time.time()
     simulation.minimizeEnergy(tolerance=TOL ,maxIterations=MAXITR)
     end = time.time()
     print('After min: E=', simulation.context.getState(getEnergy=True).getPotentialEnergy())
 
     # save a PDB of the minimized positions
-    latest_state = simulation.context.getState(getPositions=True)
+    latest_state = simulation.context.getState(getPositions=True,enforcePeriodicBox=True)
     latest_par = getParameters(simulation, n_ghosts)
 
     omma.PDBFile.writeFile(psf_top, latest_state.getPositions(), open(osp.join(OUTPUTS_PATH,f'minimized_pos.pdb'),'w'))
 
-    print("Minimization Ends")
     print(f"Minimization run time = {np.round(end - begin, 3)}s")
 
-    print('Heating system')
-    begin = time.time()
-
+    print('Heating system..')
+    heat_begin = time.time()    
     for temp_idx, TEMP in enumerate(TEMPERATURES):
+        heat_step_begin = time.time()    
         H5REPORTER_FILE = osp.join(OUTPUTS_PATH,f'traj{temp_idx}.h5')
 
         integrator = CustomHybridIntegratorRestrictedChargeVariance(n_ghosts, TEMP*unit.kelvin, FRICTION_COEFFICIENT,
@@ -215,7 +220,17 @@ if __name__ == '__main__':
         
 
         # _______________HEAT SYSTEM_______________ #
-       
+
+        if temp_idx == 0: # restrain all system atoms
+            box_sizes = np.zeros((3))
+            box_sizes[0] = system.getDefaultPeriodicBoxVectors()[0][0].value_in_unit(unit.nanometers)
+            box_sizes[1] = system.getDefaultPeriodicBoxVectors()[1][1].value_in_unit(unit.nanometers)
+            box_sizes[2] = system.getDefaultPeriodicBoxVectors()[2][2].value_in_unit(unit.nanometers)
+
+            positions = simulation.context.getState(getPositions=True,enforcePeriodicBox=True).getPositions()
+            prot_restr_force = build_protein_restraint_force(positions,prot_idxs,bb_idxs,box_sizes)
+            prot_restr_force_idx = system.addForce(prot_restr_force)
+
         simulation = omma.Simulation(psf_top, system, integrator, platform, prop)
 
         simulation.context.setState(latest_state)
@@ -245,18 +260,21 @@ if __name__ == '__main__':
         latest_par = getParameters(simulation, n_ghosts)    
         latest_state = simulation.context.getState(getPositions=True)
 
-    end = time.time()
-    print(f"Heating run time = {np.round(end - begin, 3)}s")
-    print('Done heating system; dcd saved')
+        if temp_idx == 0:
+            system.removeForce(prot_restr_force_idx)
+            system.addForce(barostat)
 
-
+        heat_step_end = time.time()
+        print(f"Heating step {temp_idx} completed. Run time = {np.round(heat_step_end - heat_step_begin, 3)}s")
+        
+    heat_end = time.time()
+    print(f"Total heating run time = {np.round(heat_end - heat_begin, 3)}s")
 
     
     #_______________SAVE SIM INPUTS_______________#
     
     # save the system, topology, simulation object, positions, and parameters
-    print(" n_ghosts",  n_ghosts)
-    print('Saving simulation input files')
+    print('Saving simulation input files..')
 
     with open(osp.join(OUTPUTS_PATH, 'system.pkl'), 'wb') as new_file:
         pkl.dump(system, new_file)

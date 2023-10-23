@@ -22,13 +22,13 @@ class SystemBuild(object):
     A class that generates a ready-to-equilibrate OpenMM system object.
     """
 
-    def __init__(self, psf=None, crd=None, pdb=None, target_pkl=None, n_ghosts=None, toppar_str=None, inputs_path=None,
+    def __init__(self, psf=None, pos=None, pdb=None, target_pkl=None, n_ghosts=None, toppar_str=None, inputs_path=None,
                  ani_model=None, width=None, binding_site_idxs=None, min_dist=0.15, gg_min_dist=0.05,
                  sf_weights=None, gg_group=None, gg_nb_group=None, mlforce_group=None, sg_group=None, mlforce_scale=None,
                  ghost_mass=None,attr_bounds=None,assignFreq=None,rmax_delta=None, rest_k=None, contForce=None):
 
         self.psf = psf
-        self.crd = crd
+        self.pos = pos
         self.pdb = pdb
         self.target_pkl = target_pkl
         self.toppar_str = toppar_str
@@ -151,21 +151,19 @@ class SystemBuild(object):
         init_attr = gen_init_attr(self.n_ghosts, self.attr_bounds,total_charge=0,init_lambda=1.0)
 
         com_bs = self.generate_COM(self.binding_site_idxs, self.pdb)
-        pos_arr = np.array(self.crd.positions.value_in_unit(unit.nanometers))
-        pdb_pos = np.array([pos_arr])
-        init_positions = gen_init_pos(self.n_ghosts, com_bs, self.width, pdb_pos, self.min_dist, self.gg_min_dist)
+        init_positions = gen_init_pos(self.n_ghosts, com_bs, self.width, self.pos, self.min_dist, self.gg_min_dist)
         
         # calculating box length
-        box_lengths = pos_arr.max(axis=0) - pos_arr.min(axis=0)
+        box_lengths = self.pos.max(axis=0) - self.pos.min(axis=0)
         self.psf.setBox(box_lengths[0] * unit.nanometers,
                    box_lengths[1] * unit.nanometers,
                    box_lengths[2] * unit.nanometers)
 
         params = read_params(self.toppar_str, self.inputs_path)
 
-        n_part_system = len(self.crd.positions)
-        self.crd.positions.extend(unit.quantity.Quantity(init_positions,
-                                            unit.nanometers))
+        n_part_system = len(self.pos)
+        self.pos = np.append(self.pos, init_positions, axis=0)
+
         system = self.psf.createSystem(params,
                                   nonbondedMethod=omma.forcefield.CutoffPeriodic,
                                   nonbondedCutoff=1*unit.nanometers,
@@ -201,9 +199,10 @@ class SystemBuild(object):
                                  n_part_system=n_part_system,
                                  group_num=self.gg_nb_group,
                                  initial_sigmas=init_attr['sigma'],
+                                 initial_charges=init_attr['charge'],
                                  nb_exclusion_list=exclusion_list)
     
-        return system, init_attr, self.n_ghosts, new_psf.topology, self.crd.positions, target_features
+        return system, init_attr, self.n_ghosts, new_psf.topology, self.pos, target_features
 
 
         
