@@ -17,8 +17,6 @@ def add_attr_force(system,
             charge_terms += ' + '
     energy_function = eps_terms + ' + ' + charge_terms + '; ' + fsig_eqns
         
-    print(energy_function)
-    
     attr_force = omm.CustomCVForce(energy_function)
 
     attr_force.addGlobalParameter('A', 941.5)

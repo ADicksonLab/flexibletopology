@@ -1,4 +1,5 @@
 import openmm as omm
+import openmm.unit as unit
 import numpy as np
 
 def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
@@ -69,3 +70,32 @@ def _modify_other_cnb_force(force, n_ghosts):
                               set(range(n_part_system)))
 
     return force
+
+def build_protein_restraint_force(positions,prot_idxs,bb_idxs,box):
+
+    posresPROT = omm.CustomExternalForce('f*(px^2+py^2+pz^2); \
+    px=min(dx, boxlx-dx); \
+    py=min(dy, boxly-dy); \
+    pz=min(dz, boxlz-dz); \
+    dx=abs(x-x0); \
+    dy=abs(y-y0); \
+    dz=abs(z-z0);')
+    posresPROT.addGlobalParameter('boxlx',box[0])
+    posresPROT.addGlobalParameter('boxly',box[1])
+    posresPROT.addGlobalParameter('boxlz',box[2])
+    posresPROT.addPerParticleParameter('f')
+    posresPROT.addPerParticleParameter('x0')
+    posresPROT.addPerParticleParameter('y0')
+    posresPROT.addPerParticleParameter('z0')
+
+    for at_idx in prot_idxs:
+        if at_idx in bb_idxs:
+            f = 400.
+        else:
+            f = 40.
+        xpos  = positions[at_idx].value_in_unit(unit.nanometers)[0]
+        ypos  = positions[at_idx].value_in_unit(unit.nanometers)[1]
+        zpos  = positions[at_idx].value_in_unit(unit.nanometers)[2]
+        posresPROT.addParticle(at_idx, [f, xpos, ypos, zpos])
+
+    return posresPROT

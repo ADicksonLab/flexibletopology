@@ -85,3 +85,23 @@ def save_ani_model(platform='cpu',
 
         print("Can not save the model")
 
+def build_protein_restraint_force(positions,prot_idxs):
+
+    posresPROT = CustomExternalForce('f*(dx^2+dy^2+dz^2); \
+    dx=abs(x-x0); \
+    dy=abs(y-y0); \
+    dz=abs(z-z0);')
+    posresPROT.addGlobalParameter('f',1000.)
+    posresPROT.addPerParticleParameter('x0')
+    posresPROT.addPerParticleParameter('y0')
+    posresPROT.addPerParticleParameter('z0')
+
+    for at_idx in prot_idxs:
+        xpos  = positions[at_idx].value_in_unit(unit.nanometers)[0]
+        ypos  = positions[at_idx].value_in_unit(unit.nanometers)[1]
+        zpos  = positions[at_idx].value_in_unit(unit.nanometers)[2]
+        posresPROT.addParticle(at_idx, [xpos, ypos, zpos])
+
+    return posresPROT
+
+
