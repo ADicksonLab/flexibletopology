@@ -59,13 +59,15 @@ def add_gs_force(system,
         
     return system
 
-def add_gg_nb_force(system,
+def add_gg_LJ_force(system,
                     n_ghosts=None,
                     n_part_system=None,
                     group_num=None,
                     initial_sigmas=None,
                     initial_charges=None,
                     nb_exclusion_list=None):
+
+    # treats the inter-ghost particle interactions as normal Lennard-Jones
     
     energy_function = f'4.0*(sor12-sor6) + 138.935456*q1*q2/r; '
     energy_function += 'sor12 = sor6^2; sor6 = (sigtot/r)^6; '
@@ -136,4 +138,70 @@ def add_gg_nb_force(system,
     system.addForce(gg_force)
         
     return system
+
+def add_gg_nb_force(system,
+                    n_ghosts=None,
+                    n_part_system=None,
+                    group_num=None,
+                    gg_min_dist=0.095,
+                    initial_charges=None,
+                    nb_exclusion_list=None):
+
+    # treats the inter-ghost particle interactions as normal Lennard-Jones
     
+    energy_function = f'4.0*(sor12-sor6) + 138.935456*q1*q2/r; '
+    energy_function += 'sor12 = sor6^2; sor6 = (sig/r)^6; '
+
+    q_term1 = 'q1 = '
+    q_term2 = 'q2 = '
+    
+    for i in range(n_ghosts):
+        q_term1 += f'charge_g{i}*is_par{i}_1'
+        q_term2 += f'charge_g{i}*is_par{i}_2'
+        if i < n_ghosts-1:
+            q_term1 += ' + '
+            q_term2 += ' + '
+        else:
+            q_term1 += '; '
+            q_term2 += '; '
+    
+    energy_function += q_term1 + q_term2
+
+    gg_force = omm.CustomNonbondedForce(energy_function)
+
+    for i in range(n_ghosts):
+        gg_force.addPerParticleParameter(f'is_par{i}_')
+        gg_force.addGlobalParameter(f'sig', gg_min_dist)
+        gg_force.addGlobalParameter(f'charge_g{i}', initial_charges[i])
+
+    # make the zero indicator vector for all system atoms
+    zero_is_par = [0 for i in range(n_ghosts)]
+    
+    # adding the systems params to the force
+    for p_idx in range(n_part_system):
+        gg_force.addParticle(zero_is_par)
+
+    # add all the ghost particles
+    for p_idx in range(n_ghosts):
+        ghost_is_par = [0 for i in range(n_ghosts)]
+        ghost_is_par[p_idx] = 1
+        
+        gg_force.addParticle(ghost_is_par)
+        # adding the del(signal)s [needed in the integrator]
+        gg_force.addEnergyParameterDerivative(f'charge_g{p_idx}')
+
+    # only compute interactions between ghosts
+    gg_force.addInteractionGroup(set(range(n_part_system,n_part_system + n_ghosts)),
+                                 set(range(n_part_system,n_part_system + n_ghosts)))
+
+    for j in range(len(nb_exclusion_list)):
+        gg_force.addExclusion(nb_exclusion_list[j][0], nb_exclusion_list[j][1])
+
+    # set force parameters
+    gg_force.setForceGroup(group_num)
+    gg_force.setNonbondedMethod(gg_force.CutoffPeriodic)
+    gg_force.setCutoffDistance(1.0)
+    system.addForce(gg_force)
+        
+    return system
+
