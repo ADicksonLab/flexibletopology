@@ -1,15 +1,18 @@
 import openmm as omm
 
-def add_gs_force(system,
-                 n_ghosts=None,
-                 n_part_system=None,
-                 group_num=None,
-                 initial_attr=None,
-                 sys_attr=None,
-                 nb_exclusion_list=None):
+def add_gs_forces(system,
+                  system_atom_idxs=None,
+                  ghost_idxs=None,
+                  group_num=None,
+                  initial_attr=None,
+                  sys_attr=None,
+                  nb_exclusion_list=None,
+                  elec_scale=1.0):
 
-    for gh_idx in range(n_ghosts):
-        energy_function = f'lambda_g{gh_idx}*(4.0*epstot*(sor12-sor6)+138.935456*q1*q2*charge_g{gh_idx}/r);'
+    n_part_system = len(sys_attr['charge'])
+    k_fac = 138.935456*elec_scale
+    for gh_idx, gh_at_idx in enumerate(ghost_idxs):
+        energy_function = f'lambda_g{gh_idx}*(4.0*epstot*(sor12-sor6)+{k_fac}*q1*q2*charge_g{gh_idx}/r);'
         energy_function += 'sor12 = sor6^2; sor6 = (sigtot/r)^6;'
         energy_function += f'sigtot = 0.5*(sigma1+sigma2+sigma_g{gh_idx}); epstot = sqrt(epsilon1*epsilon2*epsilon_g{gh_idx})'
         gs_force = omm.CustomNonbondedForce(energy_function)
@@ -39,13 +42,13 @@ def add_gs_force(system,
 
         # for each force term you need to add ALL the particles even
         # though we only use one of them!
-        for p_idx in range(n_ghosts):
+        for p_idx in ghost_idxs:
             gs_force.addParticle(
                 [1.0, 0.0, 1.0]) # add ghosts using neutral parameters that won't affect the force at all
 
         # interaction between ghost and system    
-        gs_force.addInteractionGroup(set(range(n_part_system)),
-                                     set([n_part_system + gh_idx]))
+        gs_force.addInteractionGroup(set(system_atom_idxs),
+                                     set([gh_at_idx]))
 
 
         for j in range(len(nb_exclusion_list)):
@@ -145,11 +148,17 @@ def add_gg_nb_force(system,
                     group_num=None,
                     gg_min_dist=0.095,
                     initial_charges=None,
-                    nb_exclusion_list=None):
+                    nb_exclusion_list=None,
+                    weak_elec_scale=1.0,
+                    repulsive_only=False):
 
     # treats the inter-ghost particle interactions as normal Lennard-Jones
-    
-    energy_function = f'4.0*(sor12-sor6) + 138.935456*q1*q2/r; '
+
+    k_fac = 138.935456*weak_elec_scale
+    if repulsive_only:
+        energy_function = f'4.0*(sor12-sor6) + step(q1*q2)*{k_fac}*q1*q2/r; '
+    else:
+        energy_function = f'4.0*(sor12-sor6) + {k_fac}*q1*q2/r; '
     energy_function += 'sor12 = sor6^2; sor6 = (sig/r)^6; '
 
     q_term1 = 'q1 = '
