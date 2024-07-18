@@ -27,11 +27,13 @@ def add_attr_force(system,
         attr_force.addGlobalParameter(f'charge_g{gh_idx}', initial_attr['charge'][gh_idx])
         attr_force.addGlobalParameter(f'sigma_g{gh_idx}', initial_attr['sigma'][gh_idx])
         attr_force.addGlobalParameter(f'epsilon_g{gh_idx}', initial_attr['epsilon'][gh_idx])
+        attr_force.addGlobalParameter(f'lambda_g{gh_idx}', initial_attr['lambda'][gh_idx])
 
         # adding the del(signal)s [needed in the integrator]
         attr_force.addEnergyParameterDerivative(f'charge_g{gh_idx}')
         attr_force.addEnergyParameterDerivative(f'sigma_g{gh_idx}')
         attr_force.addEnergyParameterDerivative(f'epsilon_g{gh_idx}')
+        attr_force.addEnergyParameterDerivative(f'lambda_g{gh_idx}')
         
     # set force parameters
     attr_force.setForceGroup(group_num)

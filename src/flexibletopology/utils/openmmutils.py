@@ -1,9 +1,23 @@
 import os.path as osp
 import numpy as np
-from openmm import unit
+
 import openmm.app as omma
+import openmm as omm
+from openmm import unit
 
 EP_CONVERT= -0.2390057
+
+def get_platform(plat_name):
+    if plat_name == 'CUDA':
+        print("Using CUDA platform..")
+        platform = omm.Platform.getPlatformByName('CUDA')
+        prop = dict(CudaPrecision='single')
+
+    else:
+        print("Using Reference platform..")
+        prop = {}
+        platform = omm.Platform.getPlatformByName('Reference')
+    return platform, prop
 
 def read_params(filename, parfiles_path):
     extlist = ['rtf', 'prm', 'str']
@@ -23,7 +37,7 @@ def read_params(filename, parfiles_path):
     return params
 
 
-def getParameters(sim, n_ghosts):
+def getParameters(sim, n_ghosts, get_assignment=True):
     pars = sim.context.getParameters()
 
     par_dict = {}
@@ -31,13 +45,14 @@ def getParameters(sim, n_ghosts):
     par_dict['charge'] = np.array([pars[f'charge_g{i}'] for i in range(n_ghosts)])
     par_dict['sigma'] = np.array([pars[f'sigma_g{i}'] for i in range(n_ghosts)])
     par_dict['epsilon'] = np.array([pars[f'epsilon_g{i}'] for i in range(n_ghosts)])
-    par_dict['assignment'] = np.array([pars[f'assignment_g{i}'] for i in range(n_ghosts)])
+    if get_assignment:
+        par_dict['assignment'] = np.array([pars[f'assignment_g{i}'] for i in range(n_ghosts)])
 
     return par_dict
 
 def setParameters(sim, par_dict):
     n_ghosts = len(par_dict['lambda'])
-    for attr in ['lambda','charge','sigma','epsilon','assignment']:
+    for attr in par_dict.keys():
         for i in range(n_ghosts):
             sim.context.setParameter(f'{attr}_g{i}',par_dict[attr][i])
 
@@ -105,17 +120,17 @@ def nb_params_from_charmm_psf(psf):
 
     return params
 
-def add_ghosts_to_system(system, psf, n_ghosts, ghost_mass):
-    psf_ghost_chain = psf.topology.addChain(id='G')
-    psf_ghost_res = psf.topology.addResidue('ghosts',
-                                            psf_ghost_chain)
+def add_ghosts_to_system(system, top, n_ghosts, ghost_mass):
+    ghost_chain = top.addChain(id='G')
+    ghost_res = top.addResidue('ghosts',
+                               ghost_chain)
 
     # adding ghost particles to the system
     for i in range(n_ghosts):
         system.addParticle(ghost_mass)
-        psf.topology.addAtom(f'G{i}',
-                             omma.Element.getBySymbol('Ar'),
-                             psf_ghost_res,
-                             f'G{i}')
+        top.addAtom(f'G{i}',
+                    omma.Element.getBySymbol('Ar'),
+                    ghost_res,
+                    f'G{i}')
 
-    return system, psf
+    return system, top
