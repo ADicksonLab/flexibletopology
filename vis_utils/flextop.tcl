@@ -153,7 +153,9 @@ proc ft_set_attr_state {mol frame} {
 	    mol scaleminmax $mol $rep_idx 0.25 0.75000
 	    
 	    # set the sigscale using sigma (as a fraction of the Argon sigma radius: 0.34 nm)
-	    set sigscale [expr $sigma/0.34]
+	    set sigfac 0.8
+	    set sigscale [expr $sigfac*$sigma/0.34]
+	    
 	    mol modstyle $rep_idx $mol VDW $sigscale 27.000000
 
 	    # use lambda to determine whether to render in opaque (lambda > 0.7), transparent (0.3 < lambda < 0.7), or ghost (lambda < 0.3) 
@@ -213,6 +215,21 @@ proc ft_modmaterial {material} {
 	set rep_idx [expr $i + $ft_firstrep]
 
 	mol modmaterial $rep_idx $mol $material
+    }   
+}
+
+proc ft_modradius {radius} {
+    # temporarily sets all ft radii to a constant value
+    global ft_idxs
+    global ft_firstrep
+    
+    set mol [molinfo top]
+    # use the ft_firstrep offset to determine the index of the representation to alter
+    set natoms [llength $ft_idxs($mol)]
+
+    for {set i 0} {$i < $natoms} {incr i} {
+	set rep_idx [expr $i + $ft_firstrep]
+	mol modstyle $rep_idx $mol VDW $radius 27.000000
     }   
 }
 

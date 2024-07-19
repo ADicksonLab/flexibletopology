@@ -84,4 +84,3 @@ def save_ani_model(platform='cpu',
     except:
 
         print("Can not save the model")
-
