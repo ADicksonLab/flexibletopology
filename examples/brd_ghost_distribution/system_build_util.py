@@ -12,7 +12,7 @@ import openmm.unit as unit
 from flexibletopology.utils.openmmutils import read_params, nb_params_from_charmm_psf, add_ghosts_to_system
 from flexibletopology.utils.initialize import gen_init_attr, gen_init_pos
 from flexibletopology.forces.static import add_ghosts_to_nb_forces
-from flexibletopology.forces.dynamic import add_gs_force, add_gg_nb_force
+from flexibletopology.forces.dynamic import add_gs_forces, add_gg_nb_force
 
 import sys
     
@@ -186,13 +186,13 @@ class SystemBuild(object):
             system = self.add_mlforce(system, ghost_particle_idxs, target_features)
             
         system = self.add_custom_cbf(self.pdb, system, self.gg_group, ghost_particle_idxs, self.binding_site_idxs)
-        system = add_gs_force(system,
-                              n_ghosts=self.n_ghosts,
-                              n_part_system=n_part_system,
-                              initial_attr=init_attr,
-                              group_num=self.sg_group,
-                              sys_attr=sys_nb_params,
-                              nb_exclusion_list=exclusion_list)
+        system = add_gs_forces(system,
+                               system_atom_idxs=list(range(n_part_system)),
+                               ghost_idxs=ghost_particle_idxs,
+                               group_num=self.sg_group,
+                               initial_attr=init_attr,
+                               sys_attr=sys_nb_params,
+                               nb_exclusion_list=exclusion_list)
 
         system = add_gg_nb_force(system,
                                  n_ghosts=self.n_ghosts,
