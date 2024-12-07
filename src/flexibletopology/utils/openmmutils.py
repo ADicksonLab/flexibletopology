@@ -37,7 +37,7 @@ def read_params(filename, parfiles_path):
     return params
 
 
-def getParameters(sim, n_ghosts, get_assignment=True):
+def getParameters(sim, n_ghosts, get_assignment=True, get_difftime=False):
     pars = sim.context.getParameters()
 
     par_dict = {}
@@ -48,13 +48,18 @@ def getParameters(sim, n_ghosts, get_assignment=True):
     if get_assignment:
         par_dict['assignment'] = np.array([pars[f'assignment_g{i}'] for i in range(n_ghosts)])
 
+    if get_difftime:
+        par_dict['diffTime'] = pars['diffTime']
     return par_dict
 
 def setParameters(sim, par_dict):
     n_ghosts = len(par_dict['lambda'])
     for attr in par_dict.keys():
-        for i in range(n_ghosts):
-            sim.context.setParameter(f'{attr}_g{i}',par_dict[attr][i])
+        if attr != 'diffTime':
+            for i in range(n_ghosts):
+                sim.context.setParameter(f'{attr}_g{i}',par_dict[attr][i])
+        else:
+            sim.context.setParameter(attr,par_dict[attr])
 
     return
 

@@ -150,15 +150,17 @@ def add_gg_nb_force(system,
                     initial_charges=None,
                     nb_exclusion_list=None,
                     weak_elec_scale=1.0,
+                    gg_epsilon=2.0,
                     repulsive_only=False):
 
     # treats the inter-ghost particle interactions as normal Lennard-Jones
 
     k_fac = 138.935456*weak_elec_scale
+    eps_fac = 4.0*gg_epsilon
     if repulsive_only:
-        energy_function = f'4.0*(sor12-sor6) + step(q1*q2)*{k_fac}*q1*q2/r; '
+        energy_function = f'{eps_fac}*(sor12-sor6) + step(q1*q2)*{k_fac}*q1*q2/r; '
     else:
-        energy_function = f'4.0*(sor12-sor6) + {k_fac}*q1*q2/r; '
+        energy_function = f'{eps_fac}*(sor12-sor6) + {k_fac}*q1*q2/r; '
     energy_function += 'sor12 = sor6^2; sor6 = (sig/r)^6; '
 
     q_term1 = 'q1 = '
@@ -209,7 +211,7 @@ def add_gg_nb_force(system,
     # set force parameters
     gg_force.setForceGroup(group_num)
     gg_force.setNonbondedMethod(gg_force.CutoffPeriodic)
-    gg_force.setCutoffDistance(1.0)
+    gg_force.setCutoffDistance(2.0)
     system.addForce(gg_force)
         
     return system
