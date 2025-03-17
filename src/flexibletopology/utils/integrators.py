@@ -208,19 +208,20 @@ class CustomDiffIntegratorNoAttr(omm.CustomIntegrator):
 
         # Add a part for Langevin integrator for the molecules in the system!
         self.addGlobalVariable("a", math.exp(-friction_coeff*timestep))
-        self.addGlobalVariable("b", math.sqrt(
-            1 - math.exp(-2*friction_coeff*timestep)))
+        self.addGlobalVariable("b", math.sqrt(1 - math.exp(-2*friction_coeff*timestep)))
         self.addPerDofVariable("x1", 0)
         self.addUpdateContextState()
-        self.addComputePerDof("v", "v + dt*f/m")
-        self.addConstrainVelocities()
-
+        self.addComputePerDof("v", "v + 0.5*dt*f/m")
         self.addComputePerDof("x", "x + 0.5*dt*v")
+        self.addComputePerDof("x1", "x")
+        self.addConstrainPositions()
+        self.addComputePerDof("v", "v + 2*(x-x1)/dt")
         self.addComputePerDof("v", "a*v + b*sqrt(kT/m)*gaussian")
         self.addComputePerDof("x", "x + 0.5*dt*v")
         self.addComputePerDof("x1", "x")
         self.addConstrainPositions()
-        self.addComputePerDof("v", "v + (x-x1)/dt")
+        self.addComputePerDof("v", "v + 2*(x-x1)/dt")
+        self.addComputePerDof("v", "v + 0.5*dt*f/m")
 
         self.addComputeGlobal("diffTime",f"diffTime - {difftime_decay_rate}")
         self.beginIfBlock(f"diffTime < 0.0")
