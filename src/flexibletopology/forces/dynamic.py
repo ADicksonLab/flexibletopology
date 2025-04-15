@@ -152,7 +152,8 @@ def add_gg_nb_force(system,
                     weak_elec_scale=1.0,
                     gg_epsilon=2.0,
                     repulsive_only=False,
-                    gg_nb_scale=1.0):
+                    gg_nb_scale=1.0,
+                    use_global = 0.0):
 
     # treats the inter-ghost particle interactions as normal Lennard-Jones
 
@@ -182,6 +183,8 @@ def add_gg_nb_force(system,
     gg_force = omm.CustomNonbondedForce(energy_function)
 
     gg_force.addGlobalParameter('gg_nb_scale',gg_nb_scale)
+    gg_force.addGlobalParameter('use_global', use_global)
+    
     for i in range(n_ghosts):
         gg_force.addPerParticleParameter(f'is_par{i}_')
         gg_force.addGlobalParameter(f'sig', gg_min_dist)
