@@ -131,3 +131,70 @@ def findCloseWaterAtoms(pdb,centroid,n_waters):
         to_delete += list(pdb.top.select(f'resid {pdb.top.atom(water_oxy[sort_water_idxs[i]]).residue.index}'))
 
     return to_delete
+
+def findCloseSolventAtoms(pdb, centroid, n_solvent_to_delete, is_water, solvent_resname=None, solvent_atom_names=None ):
+    """Find all indices to remove in solvent.
+    Args:
+    pdb (str): Path to pdb file.
+    centroid (list[float]): Box centroid.
+    n_solvent_to_delete (int): Number of solvent molecules to delete.
+    resname (str): Resname of solvent in pdb file.
+    atom_names (list[str]): names of the atoms for calculating distance to box centriod.
+
+    Returns:
+        list[int]: All indices to remove.
+    """
+
+    if is_water:
+        selected_indices = pdb.top.select(f'water and name O')
+        dists = np.sqrt(np.sum(np.square(pdb.xyz[0][selected_indices] - centroid),axis=1))
+        sort_selected_idxs = dists.argsort()
+        # find out the indices of everything in them.
+        to_delete = []
+        for i in range(n_solvent_to_delete):
+            to_delete += list(pdb.top.select(f'resid {pdb.top.atom(selected_indices[sort_selected_idxs[i]]).residue.index}'))
+    
+    else:
+        if not solvent_resname:
+            raise ValueError("You should specify solvent resname if solvent is NOT water!")
+        
+        if not solvent_atom_names:
+            raise ValueError("You should at least specify one atom name if solvent is NOT water!")
+
+        # Single atom for distant calculation from box center.
+        if len(solvent_atom_names) == 1:
+            selected_indices = pdb.top.select(f'resname {solvent_resname} and name {solvent_atom_names[0]}')
+            dists = np.sqrt(np.sum(np.square(pdb.xyz[0][selected_indices] - centroid),axis=1))
+            sort_selected_idxs = dists.argsort()
+
+            # find out the indices of everything in them.
+            to_delete = []
+            for i in range(n_solvent_to_delete):
+                to_delete += list(pdb.top.select(f'resid {pdb.top.atom(selected_indices[sort_selected_idxs[i]]).residue.index}'))
+
+        # Multiple atoms for distant calculation from box center.
+        else:
+            all_selected_indices = []
+            for a in solvent_atom_names:
+                selected_indices = pdb.top.select(f'resname {solvent_resname} and name {a}')
+                all_selected_indices.append(selected_indices)
+            all_selected_indices = np.array(all_selected_indices)
+
+            # Calculate centroid of each solvent molecule. 
+            all_molecule_centroid = []
+            for i in range(all_selected_indices.shape[1]):
+                molecule_pos = pdb.xyz[0][all_selected_indices[:,i]]
+                molecule_centroid = np.mean(molecule_pos , axis=0) 
+                all_molecule_centroid.append(molecule_centroid) 
+            all_molecule_centroid = np.array(all_molecule_centroid)
+            dists = np.sqrt(np.sum(np.square(np.array(all_molecule_centroid) - np.array(centroid)),axis=1))
+            sort_selected_idxs = dists.argsort()
+
+            # Find out the indices of everything in them.
+            to_delete = []
+            for i in range(n_solvent_to_delete):
+                res_idx = pdb.top.atom(all_selected_indices[0, sort_selected_idxs[i]]).residue.index
+                res_atom_indices = pdb.top.select(f'resid {res_idx}')
+                to_delete += list(res_atom_indices)
+
+    return to_delete
