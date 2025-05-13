@@ -130,6 +130,29 @@ class Grid(object):
 
         return e_grid
 
+    def compute_signed_elec_pot_grid(self,state,cutoff=0.2):
+        # get array of grid positions
+        grid_arr = self.get_xyz()
+
+        n_ghosts = state['positions'].shape[0]
+
+        e_grid = np.zeros((grid_arr.shape[0],grid_arr.shape[1],grid_arr.shape[2]))
+        masks = []
+        for i in range(n_ghosts):
+            d_grid = np.sqrt(np.square(grid_arr-state['positions'][i]).sum(axis=3))
+            masks.append(d_grid < 0.5*state['sigma'][i])
+            e_grid += np.divide(state['charge'][i], d_grid, out=np.zeros_like(d_grid), where=d_grid!=0)
+            
+        # use masks to set interior elec_potential to zero
+        combined_mask = np.logical_or.reduce(masks)
+        e_grid[combined_mask] = 0
+
+        e_grid[np.abs(e_grid) < cutoff] = 0
+        e_grid[e_grid > cutoff] = 1
+        e_grid[e_grid < -cutoff] = -1
+        
+        return e_grid
+    
     def compute_occ(self,state,max_occ=1):
         # determine a list of bin indices for each particle
         n_ghosts = state['positions'].shape[0]
