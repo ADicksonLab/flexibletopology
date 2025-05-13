@@ -9,8 +9,8 @@ def gen_init_attr(n_ghosts, attr_bounds,total_charge=None,init_lambda=None):
 
     if total_charge is not None:
         # set total charge to fixed value
-        total_charge = initial_attr['charge'].sum()
-        initial_attr['charge'] -= total_charge/n_ghosts
+        charge_sum = initial_attr['charge'].sum()
+        initial_attr['charge'] -= (charge_sum - total_charge)/n_ghosts
 
     if init_lambda is not None:
         initial_attr['lambda'][:] = init_lambda
