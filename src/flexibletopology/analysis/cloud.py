@@ -20,8 +20,8 @@ class Cloud(object):
         """
         Inputs: 
         positions - array-like, shape (n_frames, n_atoms,3) or (n_atoms,3)
-        attributes - list of dict (needs keys for 'charge', 'sigma', 'epsilon', 'lambda')
-                                  values are np.array, shape (n_atoms),
+        attributes - dict of lists (needs keys for 'charge', 'sigma', 'epsilon', 'lambda')
+                                    values are np.array, shape (n_frames, n_atoms),
                      or array-like, shape (n_frames, n_atoms, 4)
         """
 
@@ -34,11 +34,20 @@ class Cloud(object):
         self.n_frames = self.pos.shape[0]
         
         if type(attributes) is dict:
-            self.attr = np.zeros((1,self.n_atoms,4))
-            for i,attr in enumerate(ATTR_NAMES):
-                assert attr in attributes, f"attributes dict must contain '{attr}'"
-                assert len(attributes[attr]) == self.n_atoms, f"Num atoms mismatch! ({len(attributes[attr])} for {attr} != {self.n_atoms})"
-                self.attr[0,:,i] = np.array(attributes[attr])
+            if len(attributes[ATTR_NAMES[0]].shape) == 1:
+                self.attr = np.zeros((1,self.n_atoms,4))
+                for i,attr in enumerate(ATTR_NAMES):
+                    assert attr in attributes, f"attributes dict must contain '{attr}'"
+                    assert len(attributes[attr]) == self.n_atoms, f"Num atoms mismatch! ({len(attributes[attr])} for {attr} != {self.n_atoms})"
+                    self.attr[0,:,i] = np.array(attributes[attr])
+            elif len(attributes[ATTR_NAMES[0]].shape) == 2:
+                self.attr = np.zeros((self.n_frames,self.n_atoms,4))
+                for i,attr in enumerate(ATTR_NAMES):
+                    assert attr in attributes, f"attributes dict must contain '{attr}'"
+                    assert attributes[attr].shape[1] == self.n_atoms, f"Num atoms mismatch! ({len(attributes[attr])} for {attr} != {self.n_atoms})"
+                    assert attributes[attr].shape[0] == self.n_frames, f"Num frames mismatch! ({attributes[attr],shape[0]} for {attr} != {self.n_frames})"
+                    self.attr[:,:,i] = np.array(attributes[attr])
+
         elif type(attributes[0]) is dict:
             assert len(attributes) == self.n_frames, f"Num frames mismatch ({self.n_frames} for positions and {len(attributes)} for attributes"
             self.attr = np.zeros((self.n_frames,self.n_atoms,4))
