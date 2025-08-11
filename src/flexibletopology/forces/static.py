@@ -116,10 +116,10 @@ def add_pars_to_force(force, initial_attr):
         
     return force
 
-def add_custom_cbf_com(system, group_num, ghost_particle_idxs, center_of_mass, initial_attr):
+def add_custom_cbf_com(system, group_num, ghost_particle_idxs, center_of_mass, initial_attr, strength=1000):
 
     cbf = omm.CustomCentroidBondForce(1, "0.5*k*step(d - d0)*(d - d0)^2; d = sqrt((x1-com_x)^2 + (y1-com_y)^2 + (z1-com_z)^2)")
-    cbf.addGlobalParameter('k', 1000)
+    cbf.addGlobalParameter('k', strength)
     cbf.addGlobalParameter('d0', 0.9)
         
     cbf.addGlobalParameter('com_x', center_of_mass[0])
