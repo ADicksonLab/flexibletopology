@@ -264,17 +264,16 @@ proc ft_update {} {
     return
 }    
 
-proc ft_load_heating {} {
-    set mol [mol new struct_before_min.pdb]
-    mol addfile minimized_pos.pdb $mol
-    mol addfile heating0.dcd -waitfor -1 $mol
-    mol	addfile	heating1.dcd -waitfor -1 $mol
-    mol	addfile	heating2.dcd -waitfor -1 $mol
-    mol	addfile	heating3.dcd -waitfor -1 $mol
-    mol	addfile	heating4.dcd -waitfor -1 $mol
-    mol	addfile	heating5.dcd -waitfor -1 $mol
-    mol	addfile	heating6.dcd -waitfor -1 $mol
-    mol	addfile	heating7.dcd -waitfor -1 $mol
+proc ft_load_heating {folder} {
+    set mol [mol new ${folder}/minimized_pos.pdb]
+    mol rename $mol $folder
+    animate delete  beg 0 end 0 skip 0 $mol
+    
+    mol addfile ${folder}/all_heating.dcd waitfor -1 $mol
+
+    ft_setup_mol_reps $mol
+    ft_load_attributes $mol ${folder}/all_attr.txt
+    
     return
 }
 
