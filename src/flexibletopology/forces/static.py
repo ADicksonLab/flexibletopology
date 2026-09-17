@@ -2,7 +2,7 @@ import openmm as omm
 import openmm.unit as unit
 import numpy as np
 
-def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
+def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system, gg_nb_excl_list=[]):
         
     nb_forces = []
     cnb_forces = []
@@ -17,13 +17,22 @@ def add_ghosts_to_nb_forces(system, n_ghosts, n_part_system):
                 particles = (force.getExceptionParameters(i)[0],force.getExceptionParameters(i)[1])
                 exclusion_list.append(particles)
 
+            for excl in gg_nb_excl_list:
+                force.addException(excl[0] + n_part_system, excl[1] + n_part_system, 0.0, 1.0, 0.0)
 
         if force.__class__.__name__ == 'CustomNonbondedForce':
+            for excl in gg_nb_excl_list:
+                force.addExclusion(excl[0] + n_part_system, excl[1] + n_part_system)
+
             if force.getEnergyFunction() == '(a/r6)^2-b/r6; r6=r^6;a=acoef(type1, type2);b=bcoef(type1, type2)':
                 force = _modify_charmm_cnb_force(force, n_ghosts)
             else:
                 force = _modify_other_cnb_force(force, n_ghosts)
 
+
+    for excl in gg_nb_excl_list:
+        exclusion_list.append((excl[0] + n_part_system, excl[1] + n_part_system))
+        
     return system, exclusion_list
 
 def _modify_nb_force(force, n_ghosts):
@@ -154,3 +163,55 @@ def add_custom_cbf(system, group_num, ghost_particle_idxs, anchor_idxs, initial_
     system.addForce(cbf)
         
     return system
+
+def add_static_gg_excl_nbforce(system,
+                               n_ghosts=None,
+                               n_part_system=None,
+                               group_num=None,
+                               initial_attr=None,
+                               nb_exclusion_list=None,
+                               params={}):
+
+    # treats the inter-ghost particle interactions as normal Lennard-Jones, with real sigmas, epsilons, etc. (fixed)
+    # but adds exclusions for 1-2 and 1-3 atom pairs
+
+    k_fac = 138.935456
+    energy_function = f'4.0*epsilon*(sor12-sor6) + {k_fac}*q1*q2/r; '
+    energy_function += 'sor12 = sor6^2; sor6 = (sigma/r)^6; epsilon = sqrt(eps1*eps2); sigma = 0.5*(sig1+sig2) '
+    
+    gg_force = omm.CustomNonbondedForce(energy_function)
+
+    # add other parameters needed by the integrator or other forces
+    for k in params.keys():
+        gg_force.addGlobalParameter(k, params[k])
+    
+    gg_force.addPerParticleParameter('q')
+    gg_force.addPerParticleParameter('eps')
+    gg_force.addPerParticleParameter('sig')
+
+    # make dummy values for all system atoms
+    system_attr = [0.0, 0.0, 1.0]
+    
+    # adding the systems params to the force
+    for p_idx in range(n_part_system):
+        gg_force.addParticle(system_attr)
+
+    # add all the ghost particles
+    for p_idx in range(n_ghosts):
+        gg_force.addParticle([initial_attr['charge'][p_idx], initial_attr['epsilon'][p_idx], initial_attr['sigma'][p_idx]])
+
+    # only compute interactions between ghosts
+    gg_force.addInteractionGroup(set(range(n_part_system,n_part_system + n_ghosts)),
+                                 set(range(n_part_system,n_part_system + n_ghosts)))
+
+    for j in range(len(nb_exclusion_list)):
+        gg_force.addExclusion(nb_exclusion_list[j][0], nb_exclusion_list[j][1])
+
+    # set force parameters
+    gg_force.setForceGroup(group_num)
+    gg_force.setNonbondedMethod(gg_force.CutoffPeriodic)
+    gg_force.setCutoffDistance(1.0)
+    gg_force_idx = system.addForce(gg_force)
+        
+    return system, gg_force_idx
+
